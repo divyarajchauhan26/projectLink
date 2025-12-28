@@ -18,7 +18,8 @@ public class NetworkCanvas extends JPanel {
 
     // VISUAL STATES
     private List<UserNode> highlightedPath = new ArrayList<>();
-    private UserNode activeSelection = null; // The node waiting to be connected
+    private List<UserNode> waypoints = new ArrayList<>();
+    private UserNode activeSelection = null;
 
     public NetworkCanvas(NetworkService service) {
         this.service = service;
@@ -37,7 +38,6 @@ public class NetworkCanvas extends JPanel {
                 }
                 repaint();
             }
-
             @Override
             public void mouseReleased(MouseEvent e) { selectedToDrag = null; }
         });
@@ -53,14 +53,14 @@ public class NetworkCanvas extends JPanel {
         });
     }
 
-    // Called by MainFrame to show the "Dotted Circle"
     public void setActiveSelection(UserNode node) {
         this.activeSelection = node;
         repaint();
     }
 
-    public void setHighlightedPath(List<UserNode> path) {
+    public void setHighlightedPath(List<UserNode> path, List<UserNode> currentWaypoints) {
         this.highlightedPath = path;
+        this.waypoints = currentWaypoints != null ? currentWaypoints : new ArrayList<>();
         repaint();
     }
 
@@ -99,26 +99,27 @@ public class NetworkCanvas extends JPanel {
 
         // 3. NODES
         for (UserNode u : service.getAllUsers()) {
-            // Base Color
-            if (highlightedPath.contains(u)) {
+            // Priority Coloring
+            if (u.equals(activeSelection)) {
+                g2.setColor(new Color(230, 126, 34)); // Orange (Active)
+            } else if (waypoints.contains(u)) {
+                g2.setColor(new Color(241, 196, 15)); // Yellow (Waypoint)
+            } else if (highlightedPath.contains(u)) {
                 g2.setColor(new Color(46, 204, 113)); // Green (Path)
-            } else if (u.equals(activeSelection)) {
-                g2.setColor(new Color(230, 126, 34)); // Orange (Selected)
             } else {
                 g2.setColor(new Color(52, 152, 219)); // Blue (Normal)
             }
 
             g2.fillOval(u.getX() - 20, u.getY() - 20, 40, 40);
 
-            // SPECIAL DOTTED RING for Active Selection
+            // Dotted Ring
             if (u.equals(activeSelection)) {
                 Stroke dashed = new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
                 g2.setStroke(dashed);
                 g2.setColor(Color.WHITE);
-                g2.drawOval(u.getX() - 24, u.getY() - 24, 48, 48); // Draw ring outside
+                g2.drawOval(u.getX() - 24, u.getY() - 24, 48, 48);
             }
 
-            // Name Label
             g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
             g2.setColor(Color.WHITE);
             g2.drawString(u.getName(), u.getX() - 15, u.getY() - 25);
