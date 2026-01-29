@@ -47,6 +47,12 @@ public class NetworkCanvas extends JPanel {
             public void mouseDragged(MouseEvent e) {
                 if (selectedToDrag != null) {
                     selectedToDrag.setPosition(e.getX(), e.getY());
+
+                    // --- PHYSICS FIX ---
+                    // Reset velocity to 0 so the node doesn't fly away when you let go
+                    selectedToDrag.dx = 0;
+                    selectedToDrag.dy = 0;
+
                     repaint();
                 }
             }

@@ -14,7 +14,7 @@ public class MainFrame extends JFrame {
     private NetworkService service;
     private NetworkCanvas canvas;
     private JLabel statusLabel;
-    private JTextArea pathDisplay; // New: The "GPS" text box
+    private JTextArea pathDisplay; // The "GPS" text box
 
     // MODES
     private enum Mode { CONNECT, WAYPOINT, PATH, DELETE, VIEW }
@@ -23,6 +23,10 @@ public class MainFrame extends JFrame {
     // STATE
     private UserNode selection = null;
     private List<UserNode> waypointSequence = new ArrayList<>();
+
+    // PHYSICS ENGINE STATE
+    private Timer physicsTimer;
+    private boolean physicsEnabled = false;
 
     public MainFrame() {
         this.service = new NetworkService();
@@ -49,6 +53,13 @@ public class MainFrame extends JFrame {
         JToggleButton btnWaypoint = createToggle(group, "Custom Route (Via...)", Mode.WAYPOINT);
         JToggleButton btnDelete = createToggle(group, "Delete", Mode.DELETE);
 
+        // --- NEW PHYSICS BUTTON ---
+        JToggleButton btnPhysics = new JToggleButton("Physics");
+        btnPhysics.addActionListener(e -> {
+            physicsEnabled = btnPhysics.isSelected();
+            statusLabel.setText("Physics: " + (physicsEnabled ? "ON" : "OFF"));
+        });
+
         JButton btnReset = new JButton("Reset View");
         btnReset.addActionListener(e -> resetView());
 
@@ -57,15 +68,17 @@ public class MainFrame extends JFrame {
         toolBar.add(btnConnect);
         toolBar.add(btnDelete);
         toolBar.addSeparator();
-        toolBar.add(btnPath); // The "Whole different feature"
+        toolBar.add(btnPath);
         toolBar.add(btnWaypoint);
+        toolBar.addSeparator();     // Divider
+        toolBar.add(btnPhysics);    // Add Physics button here
         toolBar.add(Box.createHorizontalGlue());
         toolBar.add(btnReset);
 
         add(toolBar, BorderLayout.NORTH);
         add(canvas, BorderLayout.CENTER);
 
-        // --- NEW: SIDE PANEL FOR "DIRECTIONS" ---
+        // --- SIDE PANEL FOR "DIRECTIONS" ---
         JPanel sidePanel = new JPanel(new BorderLayout());
         sidePanel.setPreferredSize(new Dimension(250, 0));
         sidePanel.setBackground(new Color(43, 43, 43));
@@ -124,6 +137,17 @@ public class MainFrame extends JFrame {
             }
             canvas.repaint();
         });
+
+        // --- PHYSICS TIMER LOOP ---
+        // Runs every 30ms (~30 FPS) to animate the nodes
+        physicsTimer = new Timer(30, e -> {
+            if (physicsEnabled) {
+                // Call the service logic to update positions
+                service.updatePhysics(canvas.getWidth(), canvas.getHeight());
+                canvas.repaint();
+            }
+        });
+        physicsTimer.start();
     }
 
     private JToggleButton createToggle(ButtonGroup group, String name, Mode mode) {
