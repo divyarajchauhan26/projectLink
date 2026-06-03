@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Main",
+      "request": "launch",
+      "mainClass": "CampusConnect.main.Main",
+      "projectName": "projectLink_f640e47c"
+    },
+    {
+      "name": "Launch Main",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "CampusConnect.main.Main",
+      "projectName": "PorjectLink",
+      "cwd": "${workspaceFolder}/PorjectLink",
+      "console": "integratedTerminal"
+    }
+  ]
+}

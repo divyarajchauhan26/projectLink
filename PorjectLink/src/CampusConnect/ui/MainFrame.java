@@ -1,13 +1,31 @@
 package CampusConnect.ui;
 
-import CampusConnect.domain.UserNode;
-import CampusConnect.service.NetworkService;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JToggleButton;
+import javax.swing.JToolBar;
+import javax.swing.Timer;
+import javax.swing.border.EmptyBorder;
+
+import CampusConnect.domain.UserNode;
+import CampusConnect.service.NetworkService;
 
 public class MainFrame extends JFrame {
 
@@ -213,6 +231,10 @@ public class MainFrame extends JFrame {
             case DELETE:
                 service.removeUser(clicked);
                 statusLabel.setText("Deleted " + clicked.getName());
+                break;
+
+            case VIEW:
+                // Just view mode - no action on click
                 break;
         }
     }

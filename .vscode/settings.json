@@ -1,6 +1,11 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
     "java.project.referencedLibraries": [
-        "ProjectLink/lib/**/*.jar"
-    ]
+        "PorjectLink/lib/**/*.jar"
+    ],
+    "java.project.sourcePaths": [
+        "PorjectLink/src"
+    ],
+    "java.project.outputPath": "PorjectLink/out",
+    "java.server.launchMode": "Standard"
 }
