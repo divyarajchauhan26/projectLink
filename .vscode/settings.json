@@ -1,0 +1,6 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.project.referencedLibraries": [
+        "ProjectLink/lib/**/*.jar"
+    ]
+}
