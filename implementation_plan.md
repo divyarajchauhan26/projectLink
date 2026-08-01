@@ -70,7 +70,7 @@ Fix the bugs before building on them.
 
 ---
 
-### M1 — Interest Taxonomy *(~1 day)*
+### M1 — Interest Taxonomy *(~1 day)* ✅ **done**
 
 The highest-leverage work in the entire project. Free-text interests make every downstream
 feature — matching, heatmap, groups, all of ML — statistically worthless.
@@ -92,7 +92,7 @@ read the output together and confirm it collapses correctly.
 
 ---
 
-### M2 — The Person Model *(~1 day)*
+### M2 — The Person Model *(~1 day)* ✅ **done**
 
 Done as **four atomic sub-steps**, each recompiling clean, so we're never mid-rewrite.
 
@@ -121,7 +121,7 @@ Done as **four atomic sub-steps**, each recompiling clean, so we're never mid-re
 
 ---
 
-### M3 — Gson + Real Seed Data *(~1 day)*
+### M3 — Gson + Real Seed Data *(~1 day)* ✅ **done**
 
 - Add `gson-2.11.0.jar` → `PorjectLink/lib/`, update `.vscode/settings.json` + README
 - New `persist/GraphIO.java` replaces `GraphPersistence.java` (delete ~180 lines of hand-rolled parser)

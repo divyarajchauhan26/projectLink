@@ -3,7 +3,8 @@ package CampusConnect.ui;
 import CampusConnect.algorithm.*;
 import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.Person;
-import CampusConnect.service.GraphPersistence;
+import CampusConnect.persist.CampusSeed;
+import CampusConnect.persist.GraphIO;
 import CampusConnect.service.NetworkService;
 
 import javax.swing.*;
@@ -344,8 +345,8 @@ public class MainFrame extends JFrame {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                GraphPersistence.saveToJson(service, chooser.getSelectedFile());
-                statusLabel.setText("Graph saved successfully.");
+                GraphIO.save(service, chooser.getSelectedFile());
+                statusLabel.setText("Saved " + service.getAllUsers().size() + " profiles.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error saving: " + ex.getMessage());
             }
@@ -357,10 +358,17 @@ public class MainFrame extends JFrame {
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 File file = chooser.getSelectedFile();
-                GraphPersistence.loadFromJson(service, file);
+                GraphIO.LoadReport report = GraphIO.load(service, file);
                 // Clear overlays only — resetView() would wipe the graph we just loaded.
                 resetVisualState();
-                onGraphChanged("Loaded " + service.getAllUsers().size() + " users from " + file.getName());
+                onGraphChanged("Loaded " + report.summary() + " from " + file.getName());
+
+                // A file that half-loaded is worse than one that failed: say what was lost.
+                if (!report.clean()) {
+                    StringBuilder sb = new StringBuilder("Loaded with warnings:\n\n");
+                    for (String warn : report.warnings()) sb.append(" - ").append(warn).append('\n');
+                    pathDisplay.setText(sb.toString());
+                }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error loading: " + ex.getMessage());
             }
@@ -371,7 +379,7 @@ public class MainFrame extends JFrame {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                GraphPersistence.exportToCsv(service, chooser.getSelectedFile());
+                GraphIO.exportCsv(service, chooser.getSelectedFile());
                 statusLabel.setText("CSV exported successfully.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error exporting: " + ex.getMessage());
@@ -564,89 +572,19 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * Builds a rich default campus social network with 25 students and ~50 connections.
+     * Loads the seeded campus: 40 students with full profiles, six interest clusters,
+     * and three barely-connected first-years who exist to exercise cold-start matching.
      */
     private void loadDefaultGraph() {
         try {
-            int w = Math.max(800, canvas.getWidth());
-            int h = Math.max(600, canvas.getHeight());
-
-            // === STUDENTS ===
-            String[] names = {
-                "Alice", "Bob", "Charlie", "Diana", "Eve",
-                "Frank", "Grace", "Hank", "Ivy", "Jack",
-                "Karen", "Leo", "Mia", "Noah", "Olivia",
-                "Pete", "Quinn", "Ryan", "Sara", "Tom",
-                "Uma", "Victor", "Wendy", "Xavier", "Yara"
-            };
-
-            for (String name : names) {
-                service.addRandomUser(name, w, h);
-            }
-
-            // === CONNECTIONS (building a realistic campus network) ===
-            // Computer Science friend group
-            connect("Alice", "Bob"); connect("Alice", "Charlie"); connect("Bob", "Charlie");
-            connect("Alice", "Diana"); connect("Bob", "Eve"); connect("Charlie", "Eve");
-            connect("Diana", "Eve");
-
-            // Arts & Music friend group
-            connect("Frank", "Grace"); connect("Grace", "Hank"); connect("Frank", "Hank");
-            connect("Frank", "Ivy"); connect("Grace", "Ivy");
-
-            // Sports team
-            connect("Jack", "Karen"); connect("Jack", "Leo"); connect("Karen", "Leo");
-            connect("Jack", "Mia"); connect("Leo", "Mia"); connect("Karen", "Noah");
-
-            // Study group
-            connect("Noah", "Olivia"); connect("Olivia", "Pete"); connect("Pete", "Quinn");
-            connect("Noah", "Quinn"); connect("Olivia", "Quinn");
-
-            // Dorm friends
-            connect("Ryan", "Sara"); connect("Sara", "Tom"); connect("Ryan", "Tom");
-            connect("Tom", "Uma"); connect("Uma", "Victor");
-            connect("Victor", "Wendy"); connect("Wendy", "Xavier");
-            connect("Xavier", "Yara"); connect("Yara", "Ryan");
-
-            // Cross-group bridges (makes the graph interesting for analysis)
-            connect("Charlie", "Frank");   // CS <-> Arts
-            connect("Eve", "Jack");         // CS <-> Sports
-            connect("Hank", "Noah");        // Arts <-> Study
-            connect("Mia", "Olivia");       // Sports <-> Study
-            connect("Quinn", "Ryan");       // Study <-> Dorm
-            connect("Ivy", "Sara");         // Arts <-> Dorm
-            connect("Leo", "Victor");       // Sports <-> Dorm
-            connect("Diana", "Wendy");      // CS <-> Dorm
-            connect("Bob", "Grace");        // CS <-> Arts
-            connect("Karen", "Pete");       // Sports <-> Study
-            connect("Alice", "Yara");       // CS <-> Dorm
-            connect("Uma", "Hank");         // Dorm <-> Arts
-
-            // A few weighted "close friend" edges
-            service.setEdgeWeight(find("Alice"), find("Bob"), 3.0);
-            service.setEdgeWeight(find("Frank"), find("Grace"), 2.5);
-            service.setEdgeWeight(find("Jack"), find("Karen"), 2.0);
-            service.setEdgeWeight(find("Ryan"), find("Sara"), 3.0);
-            service.setEdgeWeight(find("Noah"), find("Olivia"), 2.0);
-
+            CampusSeed.load(service, canvas.getWidth(), canvas.getHeight());
         } catch (Exception e) {
             // A partial graph silently corrupts every metric downstream — say so loudly.
-            statusLabel.setText("Demo graph incomplete: " + e.getMessage());
+            statusLabel.setText("Demo campus incomplete: " + e.getMessage());
             JOptionPane.showMessageDialog(this,
-                    "Could not build the full demo network:\n" + e.getMessage()
-                            + "\n\nLoaded " + service.getAllUsers().size() + " of 25 students.",
-                    "Incomplete Demo Graph", JOptionPane.WARNING_MESSAGE);
+                    "Could not build the demo campus:\n" + e.getMessage()
+                            + "\n\nLoaded " + service.getAllUsers().size() + " students.",
+                    "Incomplete Demo Campus", JOptionPane.WARNING_MESSAGE);
         }
-    }
-
-    private void connect(String a, String b) {
-        Person u = find(a), v = find(b);
-        if (u != null && v != null) {
-            try { service.addConnection(u, v); } catch (Exception ignored) {}
-        }
-    }
-
-    private Person find(String name) {
-        return service.findUserByName(name);
     }
 }

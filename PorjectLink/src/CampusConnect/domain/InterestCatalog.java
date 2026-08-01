@@ -29,10 +29,27 @@ import java.util.Map;
  */
 public final class InterestCatalog {
 
-    private static final InterestCatalog DEFAULT = new InterestCatalog(seedTags());
+    private static InterestCatalog active = new InterestCatalog(seedTags());
 
     /** The shared catalog. */
-    public static InterestCatalog getDefault() { return DEFAULT; }
+    public static InterestCatalog getDefault() { return active; }
+
+    /**
+     * Rebuild the shared catalog with extra locally-defined tags folded in, so a campus
+     * can add its own interests without recompiling.
+     * <p>
+     * Must be called during startup, <em>before</em> any profile is loaded: people hold
+     * {@link InterestTag} references, and swapping the catalog underneath them would
+     * leave already-loaded profiles pointing at tags this catalog no longer knows.
+     *
+     * @throws IllegalStateException if an extra tag collides with an existing id or alias
+     */
+    public static synchronized void installExtras(List<InterestTag> extras) {
+        if (extras == null || extras.isEmpty()) return;
+        List<InterestTag> merged = new ArrayList<>(seedTags());
+        merged.addAll(extras);
+        active = new InterestCatalog(merged); // constructor rejects collisions
+    }
 
     // ================= resolution result =================
 
