@@ -96,12 +96,22 @@ read the output together and confirm it collapses correctly.
 
 Done as **four atomic sub-steps**, each recompiling clean, so we're never mid-rewrite.
 
-| Step | Change | Risk |
-|---|---|---|
-| 2a | Add `NodeMetrics` (rank, 3 centralities, communityId, archetype) — keyed by person id | none, additive |
-| 2b | Add `LayoutState` (x, y, dx, dy) owned by `PhysicsEngine`; physics leaves the domain | low |
-| 2c | Expand `UserNode` with profile fields (bio, interests, intensity, intent, clubs, skills, languages, hometown, hostel, courses, availability) | none, additive |
-| 2d | **Rename `UserNode` → `Person`** across all 16 files — one atomic mechanical pass | medium, but compiler-verified |
+| Step | Change | Risk | Status |
+|---|---|---|---|
+| 2a | Add `NodeMetrics` (PageRank, 3 centralities, similarity-to-me, communityId) held by the person | none, additive | ✅ done |
+| 2b | ~~Add `LayoutState`; physics leaves the domain~~ | — | ❌ **dropped** |
+| 2c | Expand with profile fields (bio, interests + intensity, intents, clubs, skills, languages, hometown, hostel, courses, teach/learn) | none, additive | ✅ done |
+| 2d | **Rename `UserNode` → `Person`** across 15 files — one atomic mechanical pass | medium, compiler-verified | ✅ done |
+
+> **Why 2b was dropped.** Moving `x, y, dx, dy` out of the domain touches ~25 call sites
+> across the canvas, physics loop, persistence and Dijkstra's heuristic, and unblocks no V2
+> feature — positions already persist correctly. Churn without payoff is how working apps
+> break. Worth revisiting only if a non-Swing front-end lands, where pixel coordinates in
+> the domain would genuinely hurt.
+>
+> **Also deviated at M1:** the taxonomy is seeded in Java, not `resources/interests.json`.
+> With no build system nothing copies resources onto the classpath, so
+> `getResourceAsStream` would simply fail. An optional JSON overlay lands in M3 with Gson.
 
 > **2a fixes a live bug for free:** all four centrality metrics currently overwrite the same
 > `rank` field, so "Top Influencers (PageRank)" silently shows whatever you ran last.

@@ -1,6 +1,6 @@
 package CampusConnect.algorithm;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.util.*;
 
@@ -15,17 +15,17 @@ public class CentralityMetrics {
     /**
      * Degree Centrality: connections / (n - 1), normalized to [0, 1].
      */
-    public static Map<UserNode, Double> degreeCentrality(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static Map<Person, Double> degreeCentrality(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Map<UserNode, Double> result = new HashMap<>();
+        Map<Person, Double> result = new HashMap<>();
         int n = users.size();
         if (n <= 1) {
-            for (UserNode u : users) result.put(u, 0.0);
+            for (Person u : users) result.put(u, 0.0);
             return result;
         }
-        for (UserNode u : users) {
+        for (Person u : users) {
             int degree = adjacencyList.getOrDefault(u, Collections.emptyList()).size();
             result.put(u, (double) degree / (n - 1));
         }
@@ -36,27 +36,27 @@ public class CentralityMetrics {
      * Closeness Centrality: (n - 1) / sum of shortest distances to all reachable nodes.
      * Uses BFS for unweighted shortest paths.
      */
-    public static Map<UserNode, Double> closenessCentrality(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static Map<Person, Double> closenessCentrality(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Map<UserNode, Double> result = new HashMap<>();
+        Map<Person, Double> result = new HashMap<>();
         int n = users.size();
         if (n <= 1) {
-            for (UserNode u : users) result.put(u, 0.0);
+            for (Person u : users) result.put(u, 0.0);
             return result;
         }
 
-        for (UserNode source : users) {
+        for (Person source : users) {
             // BFS from source
-            Map<UserNode, Integer> distances = bfsDistances(source, adjacencyList);
+            Map<Person, Integer> distances = bfsDistances(source, adjacencyList);
             int reachable = distances.size() - 1; // exclude self
             if (reachable == 0) {
                 result.put(source, 0.0);
                 continue;
             }
             double sumDist = 0;
-            for (Map.Entry<UserNode, Integer> entry : distances.entrySet()) {
+            for (Map.Entry<Person, Integer> entry : distances.entrySet()) {
                 if (!entry.getKey().equals(source)) {
                     sumDist += entry.getValue();
                 }
@@ -72,22 +72,22 @@ public class CentralityMetrics {
      * Betweenness Centrality using Brandes' algorithm — O(VE).
      * Counts how often each node sits on shortest paths between other pairs.
      */
-    public static Map<UserNode, Double> betweennessCentrality(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static Map<Person, Double> betweennessCentrality(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Map<UserNode, Double> centrality = new HashMap<>();
-        for (UserNode u : users) centrality.put(u, 0.0);
+        Map<Person, Double> centrality = new HashMap<>();
+        for (Person u : users) centrality.put(u, 0.0);
 
-        for (UserNode s : users) {
+        for (Person s : users) {
             // --- Brandes' single-source ---
-            Stack<UserNode> stack = new Stack<>();
-            Map<UserNode, List<UserNode>> predecessors = new HashMap<>();
-            Map<UserNode, Integer> sigma = new HashMap<>();    // # shortest paths
-            Map<UserNode, Integer> dist = new HashMap<>();     // distance from s
-            Map<UserNode, Double> delta = new HashMap<>();     // dependency
+            Stack<Person> stack = new Stack<>();
+            Map<Person, List<Person>> predecessors = new HashMap<>();
+            Map<Person, Integer> sigma = new HashMap<>();    // # shortest paths
+            Map<Person, Integer> dist = new HashMap<>();     // distance from s
+            Map<Person, Double> delta = new HashMap<>();     // dependency
 
-            for (UserNode u : users) {
+            for (Person u : users) {
                 predecessors.put(u, new ArrayList<>());
                 sigma.put(u, 0);
                 dist.put(u, -1);
@@ -96,14 +96,14 @@ public class CentralityMetrics {
             sigma.put(s, 1);
             dist.put(s, 0);
 
-            Queue<UserNode> queue = new LinkedList<>();
+            Queue<Person> queue = new LinkedList<>();
             queue.add(s);
 
             while (!queue.isEmpty()) {
-                UserNode v = queue.poll();
+                Person v = queue.poll();
                 stack.push(v);
 
-                for (UserNode w : adjacencyList.getOrDefault(v, Collections.emptyList())) {
+                for (Person w : adjacencyList.getOrDefault(v, Collections.emptyList())) {
                     // w discovered for first time?
                     if (dist.get(w) < 0) {
                         dist.put(w, dist.get(v) + 1);
@@ -119,8 +119,8 @@ public class CentralityMetrics {
 
             // Accumulation
             while (!stack.isEmpty()) {
-                UserNode w = stack.pop();
-                for (UserNode v : predecessors.get(w)) {
+                Person w = stack.pop();
+                for (Person v : predecessors.get(w)) {
                     double contribution = (double) sigma.get(v) / sigma.get(w) * (1.0 + delta.get(w));
                     delta.put(v, delta.get(v) + contribution);
                 }
@@ -131,14 +131,14 @@ public class CentralityMetrics {
         }
 
         // For undirected graph, divide by 2
-        for (UserNode u : users) {
+        for (Person u : users) {
             centrality.put(u, centrality.get(u) / 2.0);
         }
 
         // Normalize to [0, 1]
         double maxVal = centrality.values().stream().mapToDouble(Double::doubleValue).max().orElse(1.0);
         if (maxVal > 0) {
-            for (UserNode u : users) {
+            for (Person u : users) {
                 centrality.put(u, centrality.get(u) / maxVal);
             }
         }
@@ -149,19 +149,19 @@ public class CentralityMetrics {
     /**
      * BFS distances from a source node.
      */
-    private static Map<UserNode, Integer> bfsDistances(
-            UserNode source,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    private static Map<Person, Integer> bfsDistances(
+            Person source,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Map<UserNode, Integer> distances = new HashMap<>();
-        Queue<UserNode> queue = new LinkedList<>();
+        Map<Person, Integer> distances = new HashMap<>();
+        Queue<Person> queue = new LinkedList<>();
         distances.put(source, 0);
         queue.add(source);
 
         while (!queue.isEmpty()) {
-            UserNode current = queue.poll();
+            Person current = queue.poll();
             int currentDist = distances.get(current);
-            for (UserNode neighbor : adjacencyList.getOrDefault(current, Collections.emptyList())) {
+            for (Person neighbor : adjacencyList.getOrDefault(current, Collections.emptyList())) {
                 if (!distances.containsKey(neighbor)) {
                     distances.put(neighbor, currentDist + 1);
                     queue.add(neighbor);

@@ -3,15 +3,26 @@ This project models a college social network using graph data structures. Users 
 
 ## Setup & Running
 
-### Compile:
+### Compile (PowerShell):
+```powershell
+cd PorjectLink
+javac -d out -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar" (Get-ChildItem -Recurse -Filter *.java src | ForEach-Object FullName)
+```
+
+### Compile (bash / Git Bash):
 ```bash
 cd PorjectLink
-javac -d out -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar" src/CampusConnect/domain/UserNode.java src/CampusConnect/service/NetworkService.java src/CampusConnect/ui/NetworkCanvas.java src/CampusConnect/ui/MainFrame.java src/CampusConnect/main/Main.java
+javac -d out -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar" $(find src -name "*.java")
 ```
 
 ### Run:
 ```bash
 java -cp "out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar" CampusConnect.main.Main
+```
+
+### Dev harnesses (headless, no window):
+```bash
+java -cp out CampusConnect.dev.InterestCatalogHarness
 ```
 
 ### Or in IntelliJ IDEA:

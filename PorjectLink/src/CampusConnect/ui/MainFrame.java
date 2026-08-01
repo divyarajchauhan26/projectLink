@@ -2,7 +2,7 @@ package CampusConnect.ui;
 
 import CampusConnect.algorithm.*;
 import CampusConnect.domain.NodeMetrics;
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 import CampusConnect.service.GraphPersistence;
 import CampusConnect.service.NetworkService;
 
@@ -29,8 +29,8 @@ public class MainFrame extends JFrame {
     private Mode currentMode = Mode.VIEW;
 
     // STATE
-    private UserNode selection = null;
-    private List<UserNode> waypointSequence = new ArrayList<>();
+    private Person selection = null;
+    private List<Person> waypointSequence = new ArrayList<>();
 
     // PHYSICS ENGINE STATE
     private Timer physicsTimer;
@@ -156,7 +156,7 @@ public class MainFrame extends JFrame {
         });
 
         canvas.addPropertyChangeListener("nodeClicked", evt -> {
-            UserNode clicked = (UserNode) evt.getNewValue();
+            Person clicked = (Person) evt.getNewValue();
             if (clicked != null) {
                 try {
                     handleNodeClick(clicked);
@@ -234,19 +234,19 @@ public class MainFrame extends JFrame {
         });
 
         centBetw.addActionListener(e -> {
-            Map<UserNode, Double> res = CentralityMetrics.betweennessCentrality(service.getAllUsers(), service.getAdjacencyList());
+            Map<Person, Double> res = CentralityMetrics.betweennessCentrality(service.getAllUsers(), service.getAdjacencyList());
             res.forEach((u, v) -> u.getMetrics().setBetweenness(v));
             canvas.setHeatmapMetric(NodeMetrics.Metric.BETWEENNESS);
             onGraphChanged("Betweenness Centrality computed.");
         });
         centClose.addActionListener(e -> {
-            Map<UserNode, Double> res = CentralityMetrics.closenessCentrality(service.getAllUsers(), service.getAdjacencyList());
+            Map<Person, Double> res = CentralityMetrics.closenessCentrality(service.getAllUsers(), service.getAdjacencyList());
             res.forEach((u, v) -> u.getMetrics().setCloseness(v));
             canvas.setHeatmapMetric(NodeMetrics.Metric.CLOSENESS);
             onGraphChanged("Closeness Centrality computed.");
         });
         centDeg.addActionListener(e -> {
-            Map<UserNode, Double> res = CentralityMetrics.degreeCentrality(service.getAllUsers(), service.getAdjacencyList());
+            Map<Person, Double> res = CentralityMetrics.degreeCentrality(service.getAllUsers(), service.getAdjacencyList());
             res.forEach((u, v) -> u.getMetrics().setDegree(v));
             canvas.setHeatmapMetric(NodeMetrics.Metric.DEGREE);
             onGraphChanged("Degree Centrality computed.");
@@ -259,23 +259,23 @@ public class MainFrame extends JFrame {
         });
         
         itemBridges.addActionListener(e -> {
-            List<UserNode[]> bridges = GraphAnalyzer.findBridges(service.getAllUsers(), service.getAdjacencyList());
+            List<Person[]> bridges = GraphAnalyzer.findBridges(service.getAllUsers(), service.getAdjacencyList());
             canvas.setBridges(bridges);
-            Set<UserNode> articulation = GraphAnalyzer.findArticulationPoints(service.getAllUsers(), service.getAdjacencyList());
+            Set<Person> articulation = GraphAnalyzer.findArticulationPoints(service.getAllUsers(), service.getAdjacencyList());
             pathDisplay.setText("=== Critical Network Components ===\n\n");
             pathDisplay.append("Bridges Found: " + bridges.size() + " (Highlighted in Red)\n");
-            for (UserNode[] b : bridges) {
+            for (Person[] b : bridges) {
                 pathDisplay.append(" - " + b[0].getName() + " <-> " + b[1].getName() + "\n");
             }
             pathDisplay.append("\nArticulation Points: " + articulation.size() + "\n");
-            for (UserNode u : articulation) {
+            for (Person u : articulation) {
                 pathDisplay.append(" - " + u.getName() + "\n");
             }
             canvas.repaint();
         });
         
         itemCliques.addActionListener(e -> {
-            List<Set<UserNode>> cliques = GraphAnalyzer.findMaximalCliques(service.getAllUsers(), service.getAdjacencyList());
+            List<Set<Person>> cliques = GraphAnalyzer.findMaximalCliques(service.getAllUsers(), service.getAdjacencyList());
             cliques.sort((a,b) -> Integer.compare(b.size(), a.size())); // largest first
             pathDisplay.setText("=== Maximal Cliques (Size >= 2) ===\n\n");
             pathDisplay.append("Found " + cliques.size() + " cliques.\n\n");
@@ -390,7 +390,7 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
-    private void handleNodeClick(UserNode clicked) throws Exception {
+    private void handleNodeClick(Person clicked) throws Exception {
         switch (currentMode) {
             case CONNECT:
                 if (selection == null) {
@@ -482,7 +482,7 @@ public class MainFrame extends JFrame {
                     statusLabel.setText("Path Start: " + clicked.getName());
                     pathDisplay.setText("Starting at " + clicked.getName() + "...\nSelect next stop.");
                 } else {
-                    List<UserNode> fullPath = service.findPathThroughWaypoints(waypointSequence);
+                    List<Person> fullPath = service.findPathThroughWaypoints(waypointSequence);
                     if (fullPath.isEmpty()) {
                         waypointSequence.remove(clicked);
                         throw new Exception("Cannot reach " + clicked.getName() + " from previous node!");
@@ -515,7 +515,7 @@ public class MainFrame extends JFrame {
                 pathDisplay.append("PageRank: " + String.format("%.4f", clicked.getMetrics().getPageRank()) + "\n");
                 pathDisplay.append("Community ID: " + clicked.getMetrics().getCommunityId() + "\n");
                 pathDisplay.append("\nConnected to:\n");
-                for (UserNode f : service.getConnections(clicked)) {
+                for (Person f : service.getConnections(clicked)) {
                     double w = service.getEdgeWeight(clicked, f);
                     pathDisplay.append(" - " + f.getName() + " (w=" + w + ")\n");
                 }
@@ -534,7 +534,7 @@ public class MainFrame extends JFrame {
         canvas.setActiveSelection(null);
     }
 
-    private void resetWaypointsButKeepLast(UserNode last) {
+    private void resetWaypointsButKeepLast(Person last) {
         resetSelection();
         canvas.setActiveSelection(last);
     }
@@ -640,13 +640,13 @@ public class MainFrame extends JFrame {
     }
 
     private void connect(String a, String b) {
-        UserNode u = find(a), v = find(b);
+        Person u = find(a), v = find(b);
         if (u != null && v != null) {
             try { service.addConnection(u, v); } catch (Exception ignored) {}
         }
     }
 
-    private UserNode find(String name) {
+    private Person find(String name) {
         return service.findUserByName(name);
     }
 }

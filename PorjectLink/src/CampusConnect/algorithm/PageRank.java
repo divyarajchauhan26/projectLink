@@ -1,6 +1,6 @@
 package CampusConnect.algorithm;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.util.*;
 
@@ -21,11 +21,11 @@ public class PageRank {
      * @param adjacencyList the graph adjacency list
      * @param damping       damping factor (typically 0.85)
      * @param maxIterations maximum number of iterations
-     * @return map of UserNode → rank score (sums to 1.0)
+     * @return map of Person → rank score (sums to 1.0)
      */
-    public static Map<UserNode, Double> compute(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList,
+    public static Map<Person, Double> compute(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList,
             double damping,
             int maxIterations) {
 
@@ -33,33 +33,33 @@ public class PageRank {
         if (n == 0) return Collections.emptyMap();
 
         // Initialize ranks uniformly
-        Map<UserNode, Double> ranks = new HashMap<>();
+        Map<Person, Double> ranks = new HashMap<>();
         double initialRank = 1.0 / n;
-        for (UserNode u : users) {
+        for (Person u : users) {
             ranks.put(u, initialRank);
         }
 
         // Iterative computation
         for (int iter = 0; iter < maxIterations; iter++) {
-            Map<UserNode, Double> newRanks = new HashMap<>();
+            Map<Person, Double> newRanks = new HashMap<>();
             double danglingSum = 0.0;
 
             // Calculate dangling node contribution (nodes with no outgoing edges)
-            for (UserNode u : users) {
-                List<UserNode> neighbors = adjacencyList.getOrDefault(u, Collections.emptyList());
+            for (Person u : users) {
+                List<Person> neighbors = adjacencyList.getOrDefault(u, Collections.emptyList());
                 if (neighbors.isEmpty()) {
                     danglingSum += ranks.get(u);
                 }
             }
 
             double maxDiff = 0.0;
-            for (UserNode u : users) {
+            for (Person u : users) {
                 double incomingRank = 0.0;
 
                 // Sum rank contributions from all neighbors pointing to u
                 // (In undirected graph, all neighbors "point" to u)
-                List<UserNode> neighbors = adjacencyList.getOrDefault(u, Collections.emptyList());
-                for (UserNode neighbor : neighbors) {
+                List<Person> neighbors = adjacencyList.getOrDefault(u, Collections.emptyList());
+                for (Person neighbor : neighbors) {
                     int neighborDegree = adjacencyList.getOrDefault(neighbor, Collections.emptyList()).size();
                     if (neighborDegree > 0) {
                         incomingRank += ranks.get(neighbor) / neighborDegree;
@@ -85,8 +85,8 @@ public class PageRank {
         double minRank = ranks.values().stream().mapToDouble(Double::doubleValue).min().orElse(0.0);
         double range = maxRank - minRank;
 
-        Map<UserNode, Double> normalized = new HashMap<>();
-        for (UserNode u : users) {
+        Map<Person, Double> normalized = new HashMap<>();
+        for (Person u : users) {
             double norm = range > 0 ? (ranks.get(u) - minRank) / range : 0.5;
             normalized.put(u, norm);
             u.getMetrics().setPageRank(norm); // Store on node for heatmap
@@ -98,9 +98,9 @@ public class PageRank {
     /**
      * Compute PageRank with default parameters.
      */
-    public static Map<UserNode, Double> compute(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static Map<Person, Double> compute(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
         return compute(users, adjacencyList, DEFAULT_DAMPING, DEFAULT_ITERATIONS);
     }
 }

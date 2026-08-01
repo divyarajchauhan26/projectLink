@@ -1,7 +1,7 @@
 package CampusConnect.ui;
 
 import CampusConnect.domain.NodeMetrics;
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 import CampusConnect.service.NetworkService;
 
 import javax.swing.*;
@@ -15,20 +15,20 @@ import java.util.ArrayList;
 public class NetworkCanvas extends JPanel {
 
     private NetworkService service;
-    private UserNode selectedToDrag = null;
+    private Person selectedToDrag = null;
 
     // VISUAL STATES
-    private List<UserNode> highlightedPath = new ArrayList<>();
-    private List<UserNode> waypoints = new ArrayList<>();
-    private UserNode activeSelection = null;
+    private List<Person> highlightedPath = new ArrayList<>();
+    private List<Person> waypoints = new ArrayList<>();
+    private Person activeSelection = null;
     
     // NEW VISUAL STATES
     private boolean showCommunities = false;
     private boolean showHeatmap = false;
     /** Which metric the heatmap is currently colouring by. */
     private NodeMetrics.Metric heatmapMetric = NodeMetrics.Metric.PAGE_RANK;
-    private List<UserNode[]> bridges = new ArrayList<>();
-    private List<UserNode> visualizationStep = null; // For step-by-step animation
+    private List<Person[]> bridges = new ArrayList<>();
+    private List<Person> visualizationStep = null; // For step-by-step animation
 
     // Color palette for communities
     private static final Color[] COMMUNITY_COLORS = {
@@ -51,7 +51,7 @@ public class NetworkCanvas extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                UserNode clicked = findNodeAt(e.getPoint());
+                Person clicked = findNodeAt(e.getPoint());
                 if (clicked != null) {
                     if (e.isControlDown()) {
                         selectedToDrag = clicked;
@@ -83,12 +83,12 @@ public class NetworkCanvas extends JPanel {
 
     // --- State Setters ---
 
-    public void setActiveSelection(UserNode node) {
+    public void setActiveSelection(Person node) {
         this.activeSelection = node;
         repaint();
     }
 
-    public void setHighlightedPath(List<UserNode> path, List<UserNode> currentWaypoints) {
+    public void setHighlightedPath(List<Person> path, List<Person> currentWaypoints) {
         this.highlightedPath = path;
         this.waypoints = currentWaypoints != null ? currentWaypoints : new ArrayList<>();
         repaint();
@@ -120,20 +120,20 @@ public class NetworkCanvas extends JPanel {
 
     public NodeMetrics.Metric getHeatmapMetric() { return heatmapMetric; }
 
-    public void setBridges(List<UserNode[]> bridges) {
+    public void setBridges(List<Person[]> bridges) {
         this.bridges = bridges != null ? bridges : new ArrayList<>();
         repaint();
     }
     
-    public void setVisualizationStep(List<UserNode> nodes) {
+    public void setVisualizationStep(List<Person> nodes) {
         this.visualizationStep = nodes;
         repaint();
     }
 
     // --- Helpers ---
 
-    private UserNode findNodeAt(Point p) {
-        for (UserNode u : service.getAllUsers()) {
+    private Person findNodeAt(Point p) {
+        for (Person u : service.getAllUsers()) {
             if (u.contains(p)) return u;
         }
         return null;
@@ -170,13 +170,13 @@ public class NetworkCanvas extends JPanel {
 
         // 1. DRAW ALL CONNECTIONS
         g2.setStroke(new BasicStroke(1));
-        for (UserNode u : service.getAllUsers()) {
-            for (UserNode friend : service.getConnections(u)) {
+        for (Person u : service.getAllUsers()) {
+            for (Person friend : service.getConnections(u)) {
                 // Avoid drawing twice for undirected by only drawing if u.id < friend.id
                 if (u.getId().compareTo(friend.getId()) < 0) {
                     
                     boolean isBridge = false;
-                    for (UserNode[] b : bridges) {
+                    for (Person[] b : bridges) {
                         if ((b[0].equals(u) && b[1].equals(friend)) || (b[0].equals(friend) && b[1].equals(u))) {
                             isBridge = true; break;
                         }
@@ -210,14 +210,14 @@ public class NetworkCanvas extends JPanel {
             g2.setStroke(new BasicStroke(4));
             g2.setColor(new Color(46, 204, 113));
             for (int i = 0; i < highlightedPath.size() - 1; i++) {
-                UserNode u1 = highlightedPath.get(i);
-                UserNode u2 = highlightedPath.get(i + 1);
+                Person u1 = highlightedPath.get(i);
+                Person u2 = highlightedPath.get(i + 1);
                 g2.drawLine(u1.getX(), u1.getY(), u2.getX(), u2.getY());
             }
         }
 
         // 3. NODES
-        for (UserNode u : service.getAllUsers()) {
+        for (Person u : service.getAllUsers()) {
             
             // Determine Node Color
             if (u.equals(activeSelection)) {

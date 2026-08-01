@@ -28,7 +28,7 @@ import java.util.UUID;
  *   <li><b>{@link NodeMetrics}</b> — everything computed, never persisted</li>
  * </ul>
  */
-public class UserNode {
+public class Person {
 
     // ================= identity =================
 
@@ -88,12 +88,12 @@ public class UserNode {
 
     // ================= construction =================
 
-    public UserNode(String name, int x, int y) {
+    public Person(String name, int x, int y) {
         this(UUID.randomUUID().toString(), name, x, y);
     }
 
     /** Used when the id is already known — deserialization. */
-    public UserNode(String id, String name, int x, int y) {
+    public Person(String id, String name, int x, int y) {
         this.id = id;
         this.name = name;
         this.x = x;

@@ -1,6 +1,6 @@
 package CampusConnect.algorithm;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.util.*;
 
@@ -16,15 +16,15 @@ public class CommunityDetection {
      *
      * @return map of communityId → list of users in that community
      */
-    public static Map<Integer, List<UserNode>> detectCommunities(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static Map<Integer, List<Person>> detectCommunities(
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
 
         if (users.isEmpty()) return Collections.emptyMap();
 
         // Total edges (each undirected edge counted once)
         int totalEdges = 0;
-        for (UserNode u : users) {
+        for (Person u : users) {
             totalEdges += adjacencyList.getOrDefault(u, Collections.emptyList()).size();
         }
         totalEdges /= 2; // undirected
@@ -32,10 +32,10 @@ public class CommunityDetection {
 
         if (m == 0) {
             // No edges: each node is its own community
-            Map<Integer, List<UserNode>> result = new HashMap<>();
+            Map<Integer, List<Person>> result = new HashMap<>();
             for (int i = 0; i < users.size(); i++) {
                 users.get(i).getMetrics().setCommunityId(i);
-                List<UserNode> list = new ArrayList<>();
+                List<Person> list = new ArrayList<>();
                 list.add(users.get(i));
                 result.put(i, list);
             }
@@ -43,13 +43,13 @@ public class CommunityDetection {
         }
 
         // Degree map
-        Map<UserNode, Integer> degree = new HashMap<>();
-        for (UserNode u : users) {
+        Map<Person, Integer> degree = new HashMap<>();
+        for (Person u : users) {
             degree.put(u, adjacencyList.getOrDefault(u, Collections.emptyList()).size());
         }
 
         // Initialize: each node in its own community
-        Map<UserNode, Integer> community = new HashMap<>();
+        Map<Person, Integer> community = new HashMap<>();
         for (int i = 0; i < users.size(); i++) {
             community.put(users.get(i), i);
         }
@@ -63,24 +63,24 @@ public class CommunityDetection {
             pass++;
 
             // Shuffle order for better convergence
-            List<UserNode> shuffled = new ArrayList<>(users);
+            List<Person> shuffled = new ArrayList<>(users);
             Collections.shuffle(shuffled);
 
-            for (UserNode node : shuffled) {
+            for (Person node : shuffled) {
                 int currentComm = community.get(node);
                 int ki = degree.get(node);
 
                 // Calculate modularity gain for moving to each neighbor's community
                 // Collect neighbor communities
                 Map<Integer, Double> neighborCommEdges = new HashMap<>();
-                for (UserNode neighbor : adjacencyList.getOrDefault(node, Collections.emptyList())) {
+                for (Person neighbor : adjacencyList.getOrDefault(node, Collections.emptyList())) {
                     int nComm = community.get(neighbor);
                     neighborCommEdges.merge(nComm, 1.0, Double::sum);
                 }
 
                 // Calculate sum of degrees in each community
                 Map<Integer, Double> commDegreeSum = new HashMap<>();
-                for (UserNode u : users) {
+                for (Person u : users) {
                     int c = community.get(u);
                     commDegreeSum.merge(c, (double) degree.get(u), Double::sum);
                 }
@@ -119,7 +119,7 @@ public class CommunityDetection {
         // Compact community IDs (rename to 0, 1, 2, ...)
         Map<Integer, Integer> remapping = new HashMap<>();
         int nextId = 0;
-        for (UserNode u : users) {
+        for (Person u : users) {
             int oldId = community.get(u);
             if (!remapping.containsKey(oldId)) {
                 remapping.put(oldId, nextId++);
@@ -127,8 +127,8 @@ public class CommunityDetection {
         }
 
         // Assign to nodes and build result
-        Map<Integer, List<UserNode>> result = new HashMap<>();
-        for (UserNode u : users) {
+        Map<Integer, List<Person>> result = new HashMap<>();
+        for (Person u : users) {
             int newId = remapping.get(community.get(u));
             u.getMetrics().setCommunityId(newId);
             result.computeIfAbsent(newId, k -> new ArrayList<>()).add(u);
@@ -141,19 +141,19 @@ public class CommunityDetection {
      * Calculate graph modularity for the current community assignment.
      */
     public static double calculateModularity(
-            List<UserNode> users,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+            List<Person> users,
+            Map<Person, List<Person>> adjacencyList) {
 
         int totalEdges = 0;
-        for (UserNode u : users) {
+        for (Person u : users) {
             totalEdges += adjacencyList.getOrDefault(u, Collections.emptyList()).size();
         }
         double m = totalEdges / 2.0;
         if (m == 0) return 0.0;
 
         double q = 0.0;
-        for (UserNode u : users) {
-            for (UserNode v : users) {
+        for (Person u : users) {
+            for (Person v : users) {
                 if (u.getMetrics().getCommunityId() != v.getMetrics().getCommunityId()) continue;
 
                 int connected = adjacencyList.getOrDefault(u, Collections.emptyList()).contains(v) ? 1 : 0;

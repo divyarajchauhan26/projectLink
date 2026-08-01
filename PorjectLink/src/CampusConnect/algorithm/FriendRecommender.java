@@ -1,6 +1,6 @@
 package CampusConnect.algorithm;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.util.*;
 
@@ -16,12 +16,12 @@ public class FriendRecommender {
      * A recommendation result: a suggested user with a score.
      */
     public static class Recommendation {
-        public final UserNode user;
+        public final Person user;
         public final double score;
         public final int mutualFriends;
         public final String reason;
 
-        public Recommendation(UserNode user, double score, int mutualFriends, String reason) {
+        public Recommendation(Person user, double score, int mutualFriends, String reason) {
             this.user = user;
             this.score = score;
             this.mutualFriends = mutualFriends;
@@ -34,38 +34,38 @@ public class FriendRecommender {
      * Combines Jaccard + Adamic-Adar for a composite score.
      */
     public static List<Recommendation> recommend(
-            UserNode target,
-            List<UserNode> allUsers,
-            Map<UserNode, List<UserNode>> adjacencyList,
+            Person target,
+            List<Person> allUsers,
+            Map<Person, List<Person>> adjacencyList,
             int maxResults) {
 
-        Set<UserNode> targetFriends = new HashSet<>(
+        Set<Person> targetFriends = new HashSet<>(
                 adjacencyList.getOrDefault(target, Collections.emptyList()));
 
         List<Recommendation> recommendations = new ArrayList<>();
 
-        for (UserNode candidate : allUsers) {
+        for (Person candidate : allUsers) {
             // Skip self and existing friends
             if (candidate.equals(target) || targetFriends.contains(candidate)) continue;
 
-            Set<UserNode> candidateFriends = new HashSet<>(
+            Set<Person> candidateFriends = new HashSet<>(
                     adjacencyList.getOrDefault(candidate, Collections.emptyList()));
 
             // Common neighbors
-            Set<UserNode> common = new HashSet<>(targetFriends);
+            Set<Person> common = new HashSet<>(targetFriends);
             common.retainAll(candidateFriends);
             int mutualCount = common.size();
 
             if (mutualCount == 0) continue; // No mutual friends, skip
 
             // Jaccard coefficient: |A ∩ B| / |A ∪ B|
-            Set<UserNode> union = new HashSet<>(targetFriends);
+            Set<Person> union = new HashSet<>(targetFriends);
             union.addAll(candidateFriends);
             double jaccard = union.isEmpty() ? 0.0 : (double) mutualCount / union.size();
 
             // Adamic-Adar index: Σ 1/log(degree(z)) for each common neighbor z
             double adamicAdar = 0.0;
-            for (UserNode z : common) {
+            for (Person z : common) {
                 int zDegree = adjacencyList.getOrDefault(z, Collections.emptyList()).size();
                 if (zDegree > 1) {
                     adamicAdar += 1.0 / Math.log(zDegree);
@@ -91,13 +91,13 @@ public class FriendRecommender {
     /**
      * Find mutual friends between two users.
      */
-    public static List<UserNode> findMutualFriends(
-            UserNode u1, UserNode u2,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+    public static List<Person> findMutualFriends(
+            Person u1, Person u2,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Set<UserNode> friends1 = new HashSet<>(
+        Set<Person> friends1 = new HashSet<>(
                 adjacencyList.getOrDefault(u1, Collections.emptyList()));
-        Set<UserNode> friends2 = new HashSet<>(
+        Set<Person> friends2 = new HashSet<>(
                 adjacencyList.getOrDefault(u2, Collections.emptyList()));
 
         friends1.retainAll(friends2);
@@ -108,18 +108,18 @@ public class FriendRecommender {
      * Compute Jaccard similarity between two users.
      */
     public static double jaccardSimilarity(
-            UserNode u1, UserNode u2,
-            Map<UserNode, List<UserNode>> adjacencyList) {
+            Person u1, Person u2,
+            Map<Person, List<Person>> adjacencyList) {
 
-        Set<UserNode> friends1 = new HashSet<>(
+        Set<Person> friends1 = new HashSet<>(
                 adjacencyList.getOrDefault(u1, Collections.emptyList()));
-        Set<UserNode> friends2 = new HashSet<>(
+        Set<Person> friends2 = new HashSet<>(
                 adjacencyList.getOrDefault(u2, Collections.emptyList()));
 
-        Set<UserNode> intersection = new HashSet<>(friends1);
+        Set<Person> intersection = new HashSet<>(friends1);
         intersection.retainAll(friends2);
 
-        Set<UserNode> union = new HashSet<>(friends1);
+        Set<Person> union = new HashSet<>(friends1);
         union.addAll(friends2);
 
         return union.isEmpty() ? 0.0 : (double) intersection.size() / union.size();

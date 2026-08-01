@@ -1,6 +1,6 @@
 package CampusConnect.ui;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 import CampusConnect.service.NetworkService;
 import CampusConnect.algorithm.CommunityDetection;
 
@@ -111,13 +111,13 @@ public class StatsPanel extends JPanel {
 
         // Update Top Users list based on PageRank score
         topUsersModel.clear();
-        List<UserNode> sorted = service.getAllUsers().stream()
+        List<Person> sorted = service.getAllUsers().stream()
                 .sorted((u1, u2) -> Double.compare(u2.getMetrics().getPageRank(), u1.getMetrics().getPageRank()))
                 .limit(5)
                 .collect(Collectors.toList());
 
         for (int i = 0; i < sorted.size(); i++) {
-            UserNode u = sorted.get(i);
+            Person u = sorted.get(i);
             topUsersModel.addElement((i + 1) + ". " + u.getName()
                     + " (" + String.format("%.2f", u.getMetrics().getPageRank()) + ")");
         }

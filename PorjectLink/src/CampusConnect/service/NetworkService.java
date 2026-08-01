@@ -1,7 +1,7 @@
 package CampusConnect.service;
 
 import CampusConnect.domain.Edge;
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.awt.Point;
 import java.util.*;
@@ -10,8 +10,8 @@ import java.util.*;
  * Core graph service managing users, connections, edge weights, and physics.
  */
 public class NetworkService {
-    private List<UserNode> users;
-    private Map<UserNode, List<UserNode>> adjacencyList;
+    private List<Person> users;
+    private Map<Person, List<Person>> adjacencyList;
     private Map<String, Double> edgeWeights; // Key: sorted node-id pair
     private static final int MIN_DISTANCE = 60;
 
@@ -39,7 +39,7 @@ public class NetworkService {
             int x = 50 + rand.nextInt(Math.max(1, maxX - 100));
             int y = 50 + rand.nextInt(Math.max(1, maxY - 100));
             if (isLocationValid(x, y)) {
-                UserNode newUser = new UserNode(name, x, y);
+                Person newUser = new Person(name, x, y);
                 users.add(newUser);
                 adjacencyList.put(newUser, new ArrayList<>());
                 return;
@@ -53,7 +53,7 @@ public class NetworkService {
      * Add a user at a specific position (used by Watts-Strogatz generator).
      */
     public void addUserAtPosition(String name, int x, int y) {
-        UserNode newUser = new UserNode(name, x, y);
+        Person newUser = new Person(name, x, y);
         users.add(newUser);
         adjacencyList.put(newUser, new ArrayList<>());
     }
@@ -62,15 +62,15 @@ public class NetworkService {
      * Add a user with a known ID (used by deserialization).
      */
     public void addUserWithId(String id, String name, int x, int y) {
-        UserNode newUser = new UserNode(id, name, x, y);
+        Person newUser = new Person(id, name, x, y);
         users.add(newUser);
         adjacencyList.put(newUser, new ArrayList<>());
     }
 
-    public void removeUser(UserNode userToRemove) {
+    public void removeUser(Person userToRemove) {
         // Remove all edge weights involving this user
-        for (UserNode other : users) {
-            List<UserNode> friends = adjacencyList.get(other);
+        for (Person other : users) {
+            List<Person> friends = adjacencyList.get(other);
             if (friends != null) {
                 if (friends.remove(userToRemove)) {
                     edgeWeights.remove(Edge.makeKey(other, userToRemove));
@@ -83,10 +83,10 @@ public class NetworkService {
 
     // ========== CONNECTION MANAGEMENT ==========
 
-    public void addConnection(UserNode u1, UserNode u2) throws Exception {
+    public void addConnection(Person u1, Person u2) throws Exception {
         if (u1.equals(u2)) return;
-        List<UserNode> friends1 = adjacencyList.get(u1);
-        List<UserNode> friends2 = adjacencyList.get(u2);
+        List<Person> friends1 = adjacencyList.get(u1);
+        List<Person> friends2 = adjacencyList.get(u2);
         if (friends1.contains(u2)) throw new Exception("Already connected!");
         friends1.add(u2);
         friends2.add(u1);
@@ -94,10 +94,10 @@ public class NetworkService {
         edgeWeights.put(Edge.makeKey(u1, u2), 1.0);
     }
 
-    public void removeConnection(UserNode u1, UserNode u2) throws Exception {
+    public void removeConnection(Person u1, Person u2) throws Exception {
         if (u1.equals(u2)) return;
-        List<UserNode> friends1 = adjacencyList.get(u1);
-        List<UserNode> friends2 = adjacencyList.get(u2);
+        List<Person> friends1 = adjacencyList.get(u1);
+        List<Person> friends2 = adjacencyList.get(u2);
         if (!friends1.contains(u2)) throw new Exception("Not connected!");
         friends1.remove(u2);
         friends2.remove(u1);
@@ -106,11 +106,11 @@ public class NetworkService {
 
     // ========== EDGE WEIGHT MANAGEMENT ==========
 
-    public double getEdgeWeight(UserNode u1, UserNode u2) {
+    public double getEdgeWeight(Person u1, Person u2) {
         return edgeWeights.getOrDefault(Edge.makeKey(u1, u2), 1.0);
     }
 
-    public void setEdgeWeight(UserNode u1, UserNode u2, double weight) {
+    public void setEdgeWeight(Person u1, Person u2, double weight) {
         String key = Edge.makeKey(u1, u2);
         if (edgeWeights.containsKey(key)) {
             edgeWeights.put(key, weight);
@@ -119,36 +119,36 @@ public class NetworkService {
 
     // ========== PATHFINDING ==========
 
-    public List<UserNode> findShortestPath(UserNode start, UserNode end) {
+    public List<Person> findShortestPath(Person start, Person end) {
         if (start.equals(end)) return Collections.singletonList(start);
-        Queue<UserNode> queue = new LinkedList<>();
-        Map<UserNode, UserNode> predecessors = new HashMap<>();
-        Set<UserNode> visited = new HashSet<>();
+        Queue<Person> queue = new LinkedList<>();
+        Map<Person, Person> predecessors = new HashMap<>();
+        Set<Person> visited = new HashSet<>();
         queue.add(start); visited.add(start);
 
         while (!queue.isEmpty()) {
-            UserNode current = queue.poll();
+            Person current = queue.poll();
             if (current.equals(end)) break;
-            for (UserNode neighbor : getConnections(current)) {
+            for (Person neighbor : getConnections(current)) {
                 if (!visited.contains(neighbor)) {
                     visited.add(neighbor); predecessors.put(neighbor, current); queue.add(neighbor);
                 }
             }
         }
         if (!predecessors.containsKey(end)) return Collections.emptyList();
-        List<UserNode> path = new ArrayList<>();
-        UserNode curr = end;
+        List<Person> path = new ArrayList<>();
+        Person curr = end;
         while (curr != null) { path.add(curr); curr = predecessors.get(curr); }
         Collections.reverse(path);
         return path;
     }
 
-    public List<UserNode> findPathThroughWaypoints(List<UserNode> sequence) {
+    public List<Person> findPathThroughWaypoints(List<Person> sequence) {
         if (sequence.size() < 2) return new ArrayList<>(sequence);
-        List<UserNode> fullPath = new ArrayList<>();
+        List<Person> fullPath = new ArrayList<>();
         fullPath.add(sequence.get(0));
         for (int i = 0; i < sequence.size() - 1; i++) {
-            List<UserNode> leg = findShortestPath(sequence.get(i), sequence.get(i+1));
+            List<Person> leg = findShortestPath(sequence.get(i), sequence.get(i+1));
             if (leg.isEmpty()) return Collections.emptyList();
             for (int j = 1; j < leg.size(); j++) fullPath.add(leg.get(j));
         }
@@ -159,15 +159,15 @@ public class NetworkService {
 
     public boolean isLocationValid(int x, int y) {
         Point p = new Point(x, y);
-        for (UserNode u : users) if (p.distance(u.getX(), u.getY()) < MIN_DISTANCE) return false;
+        for (Person u : users) if (p.distance(u.getX(), u.getY()) < MIN_DISTANCE) return false;
         return true;
     }
 
     /**
      * Find a user by name (first match).
      */
-    public UserNode findUserByName(String name) {
-        for (UserNode u : users) {
+    public Person findUserByName(String name) {
+        for (Person u : users) {
             if (u.getName().equalsIgnoreCase(name)) return u;
         }
         return null;
@@ -176,8 +176,8 @@ public class NetworkService {
     /**
      * Find a user by ID.
      */
-    public UserNode findUserById(String id) {
-        for (UserNode u : users) {
+    public Person findUserById(String id) {
+        for (Person u : users) {
             if (u.getId().equals(id)) return u;
         }
         return null;
@@ -197,7 +197,7 @@ public class NetworkService {
      */
     public int getEdgeCount() {
         int total = 0;
-        for (List<UserNode> friends : adjacencyList.values()) {
+        for (List<Person> friends : adjacencyList.values()) {
             total += friends.size();
         }
         return total / 2;
@@ -223,8 +223,8 @@ public class NetworkService {
     /**
      * Compute clustering coefficient for a single node.
      */
-    public double clusteringCoefficient(UserNode node) {
-        List<UserNode> neighbors = adjacencyList.getOrDefault(node, Collections.emptyList());
+    public double clusteringCoefficient(Person node) {
+        List<Person> neighbors = adjacencyList.getOrDefault(node, Collections.emptyList());
         int k = neighbors.size();
         if (k < 2) return 0.0;
 
@@ -246,7 +246,7 @@ public class NetworkService {
     public double averageClusteringCoefficient() {
         if (users.isEmpty()) return 0.0;
         double sum = 0;
-        for (UserNode u : users) {
+        for (Person u : users) {
             sum += clusteringCoefficient(u);
         }
         return sum / users.size();
@@ -257,9 +257,9 @@ public class NetworkService {
     public void updatePhysics(int width, int height) {
         // 1. Repulsion
         for (int i = 0; i < users.size(); i++) {
-            UserNode u1 = users.get(i);
+            Person u1 = users.get(i);
             for (int j = i + 1; j < users.size(); j++) {
-                UserNode u2 = users.get(j);
+                Person u2 = users.get(j);
                 double dx = u1.x - u2.x;
                 double dy = u1.y - u2.y;
                 double dist = Math.sqrt(dx*dx + dy*dy);
@@ -284,8 +284,8 @@ public class NetworkService {
             }
         }
         // 2. Attraction (Springs)
-        for (UserNode u1 : users) {
-            for (UserNode u2 : adjacencyList.getOrDefault(u1, Collections.emptyList())) {
+        for (Person u1 : users) {
+            for (Person u2 : adjacencyList.getOrDefault(u1, Collections.emptyList())) {
                 double dx = u1.x - u2.x;
                 double dy = u1.y - u2.y;
                 double dist = Math.sqrt(dx*dx + dy*dy);
@@ -304,7 +304,7 @@ public class NetworkService {
             u1.dy += (height/2.0 - u1.y) * 0.005;
         }
         // 3. Update Position
-        for (UserNode u : users) {
+        for (Person u : users) {
             u.dx *= DAMPING; u.dy *= DAMPING;
             u.x += u.dx; u.y += u.dy;
 
@@ -318,8 +318,8 @@ public class NetworkService {
 
     // ========== ACCESSORS ==========
 
-    public List<UserNode> getAllUsers() { return users; }
-    public List<UserNode> getConnections(UserNode user) { return adjacencyList.getOrDefault(user, Collections.emptyList()); }
-    public Map<UserNode, List<UserNode>> getAdjacencyList() { return adjacencyList; }
+    public List<Person> getAllUsers() { return users; }
+    public List<Person> getConnections(Person user) { return adjacencyList.getOrDefault(user, Collections.emptyList()); }
+    public Map<Person, List<Person>> getAdjacencyList() { return adjacencyList; }
     public Map<String, Double> getEdgeWeights() { return edgeWeights; }
 }

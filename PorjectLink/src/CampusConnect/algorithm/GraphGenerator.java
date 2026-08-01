@@ -1,6 +1,6 @@
 package CampusConnect.algorithm;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 import CampusConnect.service.NetworkService;
 
 import java.util.*;
@@ -37,7 +37,7 @@ public class GraphGenerator {
                                                NetworkService service,
                                                int canvasWidth, int canvasHeight) throws Exception {
         Random rand = new Random();
-        List<UserNode> nodes = new ArrayList<>();
+        List<Person> nodes = new ArrayList<>();
 
         // Clear existing graph
         service.clear();
@@ -61,11 +61,11 @@ public class GraphGenerator {
         for (int i = initialSize; i < n; i++) {
             String name = i < SAMPLE_NAMES.length ? SAMPLE_NAMES[i] : "User" + i;
             service.addRandomUser(name, canvasWidth, canvasHeight);
-            UserNode newNode = service.getAllUsers().get(service.getAllUsers().size() - 1);
+            Person newNode = service.getAllUsers().get(service.getAllUsers().size() - 1);
 
             // Build degree list for preferential attachment
-            List<UserNode> degreePool = new ArrayList<>();
-            for (UserNode existing : nodes) {
+            List<Person> degreePool = new ArrayList<>();
+            for (Person existing : nodes) {
                 int degree = service.getConnections(existing).size();
                 for (int d = 0; d <= degree; d++) { // degree+1 copies (so isolated nodes still have a chance)
                     degreePool.add(existing);
@@ -73,15 +73,15 @@ public class GraphGenerator {
             }
 
             // Select m unique targets
-            Set<UserNode> targets = new HashSet<>();
+            Set<Person> targets = new HashSet<>();
             int attempts = 0;
             while (targets.size() < Math.min(m, nodes.size()) && attempts < 1000) {
-                UserNode target = degreePool.get(rand.nextInt(degreePool.size()));
+                Person target = degreePool.get(rand.nextInt(degreePool.size()));
                 targets.add(target);
                 attempts++;
             }
 
-            for (UserNode target : targets) {
+            for (Person target : targets) {
                 try { service.addConnection(newNode, target); } catch (Exception e) {}
             }
             nodes.add(newNode);
@@ -107,7 +107,7 @@ public class GraphGenerator {
             service.addRandomUser(name, canvasWidth, canvasHeight);
         }
 
-        List<UserNode> nodes = service.getAllUsers();
+        List<Person> nodes = service.getAllUsers();
 
         // Connect each pair with probability p
         for (int i = 0; i < nodes.size(); i++) {
@@ -146,7 +146,7 @@ public class GraphGenerator {
             service.addUserAtPosition(name, x, y);
         }
 
-        List<UserNode> nodes = service.getAllUsers();
+        List<Person> nodes = service.getAllUsers();
         int halfK = k / 2;
 
         // Create ring lattice

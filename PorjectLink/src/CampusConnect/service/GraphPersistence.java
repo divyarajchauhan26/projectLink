@@ -3,7 +3,7 @@ package CampusConnect.service;
 import CampusConnect.domain.Edge;
 import CampusConnect.domain.InterestCatalog;
 import CampusConnect.domain.InterestTag;
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import java.io.*;
 import java.util.*;
@@ -23,9 +23,9 @@ public class GraphPersistence {
 
             // --- Nodes ---
             writer.println("  \"nodes\": [");
-            List<UserNode> users = service.getAllUsers();
+            List<Person> users = service.getAllUsers();
             for (int i = 0; i < users.size(); i++) {
-                UserNode u = users.get(i);
+                Person u = users.get(i);
                 writer.print("    {");
                 writer.print("\"id\": \"" + escape(u.getId()) + "\", ");
                 writer.print("\"name\": \"" + escape(u.getName()) + "\", ");
@@ -53,8 +53,8 @@ public class GraphPersistence {
             writer.println("  \"edges\": [");
             Set<String> writtenEdges = new HashSet<>();
             boolean firstEdge = true;
-            for (UserNode u : users) {
-                for (UserNode friend : service.getConnections(u)) {
+            for (Person u : users) {
+                for (Person friend : service.getConnections(u)) {
                     String key = Edge.makeKey(u, friend);
                     if (!writtenEdges.contains(key)) {
                         writtenEdges.add(key);
@@ -92,7 +92,7 @@ public class GraphPersistence {
             int y = parseInt(node.getOrDefault("y", "100"));
             service.addUserWithId(id, name, x, y);
 
-            UserNode u = service.findUserById(id);
+            Person u = service.findUserById(id);
             if (u != null) {
                 u.setMajor(node.getOrDefault("major", ""));
                 u.setYear(parseInt(node.getOrDefault("year", "0")));
@@ -117,8 +117,8 @@ public class GraphPersistence {
             String targetId = edge.get("target");
             double weight = parseDouble(edge.getOrDefault("weight", "1.0"));
 
-            UserNode source = service.findUserById(sourceId);
-            UserNode target = service.findUserById(targetId);
+            Person source = service.findUserById(sourceId);
+            Person target = service.findUserById(targetId);
             if (source != null && target != null) {
                 try {
                     service.addConnection(source, target);
@@ -134,7 +134,7 @@ public class GraphPersistence {
      * Export the adjacency matrix to a CSV file.
      */
     public static void exportToCsv(NetworkService service, File file) throws IOException {
-        List<UserNode> users = service.getAllUsers();
+        List<Person> users = service.getAllUsers();
         try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
             // Header row
             writer.print(",");
@@ -145,11 +145,11 @@ public class GraphPersistence {
             writer.println();
 
             // Data rows
-            for (UserNode u : users) {
+            for (Person u : users) {
                 writer.print(escape(u.getName()) + ",");
-                List<UserNode> connections = service.getConnections(u);
+                List<Person> connections = service.getConnections(u);
                 for (int j = 0; j < users.size(); j++) {
-                    UserNode v = users.get(j);
+                    Person v = users.get(j);
                     if (connections.contains(v)) {
                         writer.print(String.format("%.1f", service.getEdgeWeight(u, v)));
                     } else {

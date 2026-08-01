@@ -1,6 +1,6 @@
 package CampusConnect.ui;
 
-import CampusConnect.domain.UserNode;
+import CampusConnect.domain.Person;
 
 import javax.swing.*;
 import java.util.List;
@@ -12,7 +12,7 @@ public class AlgorithmVisualizer {
 
     private final NetworkCanvas canvas;
     private final JTextArea displayArea;
-    private List<List<UserNode>> steps;
+    private List<List<Person>> steps;
     private int currentStep = 0;
     private Timer timer;
 
@@ -23,7 +23,7 @@ public class AlgorithmVisualizer {
         this.timer = new Timer(500, e -> nextStep());
     }
 
-    public void startVisualization(List<List<UserNode>> steps, String algorithmName) {
+    public void startVisualization(List<List<Person>> steps, String algorithmName) {
         this.steps = steps;
         this.currentStep = 0;
         
@@ -52,7 +52,7 @@ public class AlgorithmVisualizer {
             return;
         }
 
-        List<UserNode> stepNodes = steps.get(currentStep);
+        List<Person> stepNodes = steps.get(currentStep);
         canvas.setVisualizationStep(stepNodes);
         
         displayArea.append("Step " + (currentStep + 1) + ": Visited " + stepNodes.size() + " nodes\n");

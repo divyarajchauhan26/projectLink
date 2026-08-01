@@ -8,7 +8,7 @@
 ## 0. The Core Reframe (read this before anything else)
 
 **V1:** the graph is the product. You manually place nodes and manually wire edges. The
-profile fields (`major`, `year`, `interests`) exist in [UserNode.java](PorjectLink/src/CampusConnect/domain/UserNode.java)
+profile fields (`major`, `year`, `interests`) exist in [Person.java](PorjectLink/src/CampusConnect/domain/Person.java)
 but there is no UI to fill them in — they are dead weight.
 
 **V2:** the *person* is the product. The graph is what emerges when people describe
