@@ -21,6 +21,9 @@ public class NetworkService {
     private static final double SPRING_FORCE = 0.05;
     private static final double DAMPING = 0.85;
 
+    // Used only to break the tie when two nodes occupy the exact same point.
+    private final Random jitter = new Random();
+
     public NetworkService() {
         this.users = new ArrayList<>();
         this.adjacencyList = new HashMap<>();
@@ -260,7 +263,17 @@ public class NetworkService {
                 double dx = u1.x - u2.x;
                 double dy = u1.y - u2.y;
                 double dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < 1) dist = 1;
+                if (dist < 0.01) {
+                    // Exactly coincident. Clamping dist alone is not enough: the direction
+                    // (dx/dist, dy/dist) would be (0,0), so the nodes would stay fused
+                    // forever. Push them apart along an arbitrary direction instead.
+                    double angle = jitter.nextDouble() * 2 * Math.PI;
+                    dx = Math.cos(angle);
+                    dy = Math.sin(angle);
+                    dist = 1;
+                } else if (dist < 1) {
+                    dist = 1;
+                }
 
                 double force = REPULSION_FORCE / (dist * dist);
                 double fx = (dx / dist) * force;
@@ -272,10 +285,13 @@ public class NetworkService {
         }
         // 2. Attraction (Springs)
         for (UserNode u1 : users) {
-            for (UserNode u2 : adjacencyList.get(u1)) {
+            for (UserNode u2 : adjacencyList.getOrDefault(u1, Collections.emptyList())) {
                 double dx = u1.x - u2.x;
                 double dy = u1.y - u2.y;
                 double dist = Math.sqrt(dx*dx + dy*dy);
+                // Guard against two nodes landing on the exact same spot:
+                // dist == 0 would make fx/fy NaN and the nodes would vanish permanently.
+                if (dist < 1) dist = 1;
 
                 double force = (dist - SPRING_LENGTH) * SPRING_FORCE;
                 double fx = (dx / dist) * force;

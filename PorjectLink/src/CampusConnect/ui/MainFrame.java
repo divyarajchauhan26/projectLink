@@ -56,6 +56,11 @@ public class MainFrame extends JFrame {
         btnAdd.setForeground(Color.WHITE);
 
         ButtonGroup group = new ButtonGroup();
+        // Inspect is the default mode, so it needs a button of its own — a ButtonGroup
+        // can never be deselected, so without this the mode becomes unreachable
+        // as soon as any other toggle is pressed.
+        JToggleButton btnInspect = createToggle(group, "Inspect", Mode.VIEW);
+        btnInspect.setSelected(true);
         JToggleButton btnConnect = createToggle(group, "Connect (Add Link)", Mode.CONNECT);
         JToggleButton btnDisconnect = createToggle(group, "Disconnect", Mode.DISCONNECT);
         JToggleButton btnWeight = createToggle(group, "Set Weight", Mode.SET_WEIGHT);
@@ -69,11 +74,18 @@ public class MainFrame extends JFrame {
             statusLabel.setText("Physics: " + (physicsEnabled ? "ON" : "OFF"));
         });
 
-        JButton btnReset = new JButton("Reset View");
-        btnReset.addActionListener(e -> resetView());
+        // Destructive: this discards the current graph. Label it honestly.
+        JButton btnReset = new JButton("Reset to Demo Graph");
+        btnReset.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "This will discard the current graph and reload the demo network.\nContinue?",
+                    "Reset to Demo Graph", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (confirm == JOptionPane.YES_OPTION) resetView();
+        });
 
         toolBar.add(btnAdd);
         toolBar.addSeparator();
+        toolBar.add(btnInspect);
         toolBar.add(btnConnect);
         toolBar.add(btnDisconnect);
         toolBar.add(btnWeight);
@@ -341,9 +353,11 @@ public class MainFrame extends JFrame {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                GraphPersistence.loadFromJson(service, chooser.getSelectedFile());
-                onGraphChanged("Graph loaded successfully.");
-                resetView();
+                File file = chooser.getSelectedFile();
+                GraphPersistence.loadFromJson(service, file);
+                // Clear overlays only — resetView() would wipe the graph we just loaded.
+                resetVisualState();
+                onGraphChanged("Loaded " + service.getAllUsers().size() + " users from " + file.getName());
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error loading: " + ex.getMessage());
             }
@@ -613,7 +627,12 @@ public class MainFrame extends JFrame {
             service.setEdgeWeight(find("Noah"), find("Olivia"), 2.0);
 
         } catch (Exception e) {
-            e.printStackTrace();
+            // A partial graph silently corrupts every metric downstream — say so loudly.
+            statusLabel.setText("Demo graph incomplete: " + e.getMessage());
+            JOptionPane.showMessageDialog(this,
+                    "Could not build the full demo network:\n" + e.getMessage()
+                            + "\n\nLoaded " + service.getAllUsers().size() + " of 25 students.",
+                    "Incomplete Demo Graph", JOptionPane.WARNING_MESSAGE);
         }
     }
 
