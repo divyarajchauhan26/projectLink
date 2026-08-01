@@ -8,7 +8,6 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -113,13 +112,14 @@ public class StatsPanel extends JPanel {
         // Update Top Users list based on PageRank score
         topUsersModel.clear();
         List<UserNode> sorted = service.getAllUsers().stream()
-                .sorted((u1, u2) -> Double.compare(u2.getRank(), u1.getRank()))
+                .sorted((u1, u2) -> Double.compare(u2.getMetrics().getPageRank(), u1.getMetrics().getPageRank()))
                 .limit(5)
                 .collect(Collectors.toList());
-                
+
         for (int i = 0; i < sorted.size(); i++) {
             UserNode u = sorted.get(i);
-            topUsersModel.addElement((i + 1) + ". " + u.getName() + " (" + String.format("%.2f", u.getRank()) + ")");
+            topUsersModel.addElement((i + 1) + ". " + u.getName()
+                    + " (" + String.format("%.2f", u.getMetrics().getPageRank()) + ")");
         }
     }
 }

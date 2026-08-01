@@ -1,6 +1,8 @@
 package CampusConnect.service;
 
 import CampusConnect.domain.Edge;
+import CampusConnect.domain.InterestCatalog;
+import CampusConnect.domain.InterestTag;
 import CampusConnect.domain.UserNode;
 
 import java.io.*;
@@ -32,10 +34,13 @@ public class GraphPersistence {
                 writer.print("\"major\": \"" + escape(u.getMajor()) + "\", ");
                 writer.print("\"year\": " + u.getYear() + ", ");
                 writer.print("\"interests\": [");
-                List<String> interests = u.getInterests();
-                for (int j = 0; j < interests.size(); j++) {
-                    writer.print("\"" + escape(interests.get(j)) + "\"");
-                    if (j < interests.size() - 1) writer.print(", ");
+                // Persist canonical tag ids, never display labels — labels can be
+                // reworded, ids are stable forever.
+                boolean firstTag = true;
+                for (InterestTag tag : u.getInterests()) {
+                    if (!firstTag) writer.print(", ");
+                    writer.print("\"" + escape(tag.id()) + "\"");
+                    firstTag = false;
                 }
                 writer.print("]");
                 writer.print("}");
@@ -94,12 +99,13 @@ public class GraphPersistence {
                 // Interests are handled separately
                 String interestsStr = node.getOrDefault("interests", "");
                 if (!interestsStr.isEmpty()) {
-                    List<String> interests = new ArrayList<>();
+                    InterestCatalog catalog = InterestCatalog.getDefault();
                     for (String s : interestsStr.split(",")) {
-                        String trimmed = s.trim();
-                        if (!trimmed.isEmpty()) interests.add(trimmed);
+                        // Route through the resolver rather than trusting the file:
+                        // hand-edited saves and older exports may hold labels or aliases.
+                        InterestCatalog.Resolution r = catalog.resolve(s.trim());
+                        if (r.found()) u.addInterest(r.tag());
                     }
-                    u.setInterests(interests);
                 }
             }
         }

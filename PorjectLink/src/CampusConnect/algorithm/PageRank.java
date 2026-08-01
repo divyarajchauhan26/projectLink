@@ -89,7 +89,7 @@ public class PageRank {
         for (UserNode u : users) {
             double norm = range > 0 ? (ranks.get(u) - minRank) / range : 0.5;
             normalized.put(u, norm);
-            u.setRank(norm); // Store on node for heatmap
+            u.getMetrics().setPageRank(norm); // Store on node for heatmap
         }
 
         return normalized;

@@ -34,7 +34,7 @@ public class CommunityDetection {
             // No edges: each node is its own community
             Map<Integer, List<UserNode>> result = new HashMap<>();
             for (int i = 0; i < users.size(); i++) {
-                users.get(i).setCommunityId(i);
+                users.get(i).getMetrics().setCommunityId(i);
                 List<UserNode> list = new ArrayList<>();
                 list.add(users.get(i));
                 result.put(i, list);
@@ -130,7 +130,7 @@ public class CommunityDetection {
         Map<Integer, List<UserNode>> result = new HashMap<>();
         for (UserNode u : users) {
             int newId = remapping.get(community.get(u));
-            u.setCommunityId(newId);
+            u.getMetrics().setCommunityId(newId);
             result.computeIfAbsent(newId, k -> new ArrayList<>()).add(u);
         }
 
@@ -154,7 +154,7 @@ public class CommunityDetection {
         double q = 0.0;
         for (UserNode u : users) {
             for (UserNode v : users) {
-                if (u.getCommunityId() != v.getCommunityId()) continue;
+                if (u.getMetrics().getCommunityId() != v.getMetrics().getCommunityId()) continue;
 
                 int connected = adjacencyList.getOrDefault(u, Collections.emptyList()).contains(v) ? 1 : 0;
                 int ku = adjacencyList.getOrDefault(u, Collections.emptyList()).size();

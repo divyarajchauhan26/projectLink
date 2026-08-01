@@ -1,5 +1,6 @@
 package CampusConnect.ui;
 
+import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.UserNode;
 import CampusConnect.service.NetworkService;
 
@@ -24,6 +25,8 @@ public class NetworkCanvas extends JPanel {
     // NEW VISUAL STATES
     private boolean showCommunities = false;
     private boolean showHeatmap = false;
+    /** Which metric the heatmap is currently colouring by. */
+    private NodeMetrics.Metric heatmapMetric = NodeMetrics.Metric.PAGE_RANK;
     private List<UserNode[]> bridges = new ArrayList<>();
     private List<UserNode> visualizationStep = null; // For step-by-step animation
 
@@ -102,6 +105,20 @@ public class NetworkCanvas extends JPanel {
         if (show) showCommunities = false;
         repaint();
     }
+
+    /**
+     * Show the heatmap coloured by a specific metric. Previously the heatmap always read
+     * a single shared field, so running betweenness produced a map still labelled
+     * "PageRank" — the colours and the legend disagreed.
+     */
+    public void setHeatmapMetric(NodeMetrics.Metric metric) {
+        this.heatmapMetric = metric;
+        this.showHeatmap = true;
+        this.showCommunities = false;
+        repaint();
+    }
+
+    public NodeMetrics.Metric getHeatmapMetric() { return heatmapMetric; }
 
     public void setBridges(List<UserNode[]> bridges) {
         this.bridges = bridges != null ? bridges : new ArrayList<>();
@@ -212,10 +229,9 @@ public class NetworkCanvas extends JPanel {
             } else if (visualizationStep != null && visualizationStep.contains(u)) {
                 g2.setColor(new Color(155, 89, 182)); // Purple (Visualization)
             } else if (showHeatmap) {
-                // Use PageRank as the default heatmap metric
-                g2.setColor(getHeatmapColor(u.getRank()));
-            } else if (showCommunities && u.getCommunityId() >= 0) {
-                int cId = u.getCommunityId() % COMMUNITY_COLORS.length;
+                g2.setColor(getHeatmapColor(u.getMetrics().get(heatmapMetric)));
+            } else if (showCommunities && u.getMetrics().getCommunityId() >= 0) {
+                int cId = u.getMetrics().getCommunityId() % COMMUNITY_COLORS.length;
                 g2.setColor(COMMUNITY_COLORS[cId]);
             } else {
                 g2.setColor(new Color(52, 152, 219)); // Blue (Normal)

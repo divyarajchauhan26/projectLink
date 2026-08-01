@@ -1,6 +1,7 @@
 package CampusConnect.ui;
 
 import CampusConnect.algorithm.*;
+import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.UserNode;
 import CampusConnect.service.GraphPersistence;
 import CampusConnect.service.NetworkService;
@@ -224,28 +225,30 @@ public class MainFrame extends JFrame {
         JMenuItem itemCliques = new JMenuItem("Find Cliques");
         JMenuItem itemDiameter = new JMenuItem("Compute Diameter/Radius");
         
+        // Each metric now writes to its own field and tells the canvas which one to
+        // colour by, so the heatmap and its label can no longer disagree.
         itemPageRank.addActionListener(e -> {
             PageRank.compute(service.getAllUsers(), service.getAdjacencyList());
-            canvas.setShowHeatmap(true);
+            canvas.setHeatmapMetric(NodeMetrics.Metric.PAGE_RANK);
             onGraphChanged("PageRank computed. Heatmap enabled.");
         });
-        
+
         centBetw.addActionListener(e -> {
             Map<UserNode, Double> res = CentralityMetrics.betweennessCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.setRank(v));
-            canvas.setShowHeatmap(true);
+            res.forEach((u, v) -> u.getMetrics().setBetweenness(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.BETWEENNESS);
             onGraphChanged("Betweenness Centrality computed.");
         });
         centClose.addActionListener(e -> {
             Map<UserNode, Double> res = CentralityMetrics.closenessCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.setRank(v));
-            canvas.setShowHeatmap(true);
+            res.forEach((u, v) -> u.getMetrics().setCloseness(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.CLOSENESS);
             onGraphChanged("Closeness Centrality computed.");
         });
         centDeg.addActionListener(e -> {
             Map<UserNode, Double> res = CentralityMetrics.degreeCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.setRank(v));
-            canvas.setShowHeatmap(true);
+            res.forEach((u, v) -> u.getMetrics().setDegree(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.DEGREE);
             onGraphChanged("Degree Centrality computed.");
         });
         
@@ -509,8 +512,8 @@ public class MainFrame extends JFrame {
                 pathDisplay.setText("=== Node Info ===\n\n");
                 pathDisplay.append("Name: " + clicked.getName() + "\n");
                 pathDisplay.append("Degree: " + service.getConnections(clicked).size() + "\n");
-                pathDisplay.append("PageRank: " + String.format("%.4f", clicked.getRank()) + "\n");
-                pathDisplay.append("Community ID: " + clicked.getCommunityId() + "\n");
+                pathDisplay.append("PageRank: " + String.format("%.4f", clicked.getMetrics().getPageRank()) + "\n");
+                pathDisplay.append("Community ID: " + clicked.getMetrics().getCommunityId() + "\n");
                 pathDisplay.append("\nConnected to:\n");
                 for (UserNode f : service.getConnections(clicked)) {
                     double w = service.getEdgeWeight(clicked, f);
