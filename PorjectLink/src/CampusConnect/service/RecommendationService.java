@@ -126,27 +126,59 @@ public final class RecommendationService {
     // ================= the main entry point =================
 
     public List<Suggestion> recommend(Person target, int limit) {
+        return recommend(target, limit, 0.0, Set.of());
+    }
+
+    /**
+     * @param serendipity 0 = closest matches, 1 = people you would otherwise never meet.
+     *                    See {@link #applySerendipity}.
+     * @param excludeIds  person ids to skip, typically recently dismissed
+     */
+    public List<Suggestion> recommend(Person target, int limit,
+                                      double serendipity, Set<String> excludeIds) {
         if (target == null) return List.of();
 
         Map<Person, List<Person>> adjacency = service.getAdjacencyList();
         Set<Person> alreadyFriends = new HashSet<>(service.getConnections(target));
-        boolean coldStart = isColdStart(target);
-        Weights w = coldStart ? redistributeForColdStart(weights) : weights;
+        Weights w = isColdStart(target) ? redistributeForColdStart(weights) : weights;
+        double s = Math.max(0.0, Math.min(1.0, serendipity));
 
         List<Suggestion> scored = new ArrayList<>();
         for (Person candidate : service.getAllUsers()) {
             if (candidate == target || alreadyFriends.contains(candidate)) continue;
+            if (excludeIds != null && excludeIds.contains(candidate.getId())) continue;
 
-            Scored s = score(target, candidate, w);
-            if (s.score() <= 0.01) continue; // nothing meaningful in common
+            Scored raw = score(target, candidate, w);
+            double finalScore = applySerendipity(raw, s);
+            if (finalScore <= 0.01) continue; // nothing meaningful in common
 
             List<Person> mutual = FriendRecommender.commonNeighbours(target, candidate, adjacency);
-            String why = explanations.build(target, candidate, s.signals(), mutual);
-            scored.add(new Suggestion(candidate, s.score(), s.signals(), mutual, why));
+            String why = explanations.build(target, candidate, raw.signals(), mutual);
+            scored.add(new Suggestion(candidate, finalScore, raw.signals(), mutual, why));
         }
 
         scored.sort((a, b) -> Double.compare(b.score(), a.score()));
         return diversify(scored, limit);
+    }
+
+    /**
+     * Trade closeness for reach.
+     * <p>
+     * The structural term is what keeps suggestions inside the circle you already move in:
+     * shared friends score highly, so the safe pick is always a friend-of-a-friend. Turning
+     * serendipity up damps that term and pays a bonus to candidates with <em>no</em>
+     * overlap, which surfaces the person across campus who shares a rare interest and
+     * knows nobody you know.
+     * <p>
+     * This is the explore/exploit dial stated plainly, and it is also where a contextual
+     * bandit plugs in later — the axis is already defined and the choice already logged.
+     */
+    private static double applySerendipity(Scored raw, double serendipity) {
+        if (serendipity <= 0) return raw.score();
+        double structural = raw.signals().structural();
+        double explorationBonus = serendipity * 0.25 * (1.0 - structural);
+        double damped = raw.score() - serendipity * 0.5 * structural * 0.22;
+        return damped + explorationBonus;
     }
 
     /** One scored pair, before it becomes a user-facing Suggestion. */

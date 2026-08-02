@@ -5,6 +5,7 @@ import CampusConnect.app.AppSession;
 import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.Person;
 import CampusConnect.persist.CampusSeed;
+import CampusConnect.persist.EventLog;
 import CampusConnect.persist.GraphIO;
 import CampusConnect.service.NetworkService;
 import CampusConnect.service.RecommendationService;
@@ -24,6 +25,7 @@ public class MainFrame extends JFrame {
 
     private static final String SIDE_PROFILE = "profile";
     private static final String SIDE_TEXT = "text";
+    private static final String SIDE_DISCOVER = "discover";
 
     private NetworkService service;
     private NetworkCanvas canvas;
@@ -37,6 +39,8 @@ public class MainFrame extends JFrame {
     private JLabel sideTitle;
 
     private final AppSession session = new AppSession();
+    private final EventLog eventLog = new EventLog();
+    private DiscoveryPanel discoveryPanel;
     /**
      * Rebuilt lazily whenever the graph or a profile changes — every similarity weight
      * depends on corpus-wide frequencies, so a stale engine scores against the old campus.
@@ -152,8 +156,14 @@ public class MainFrame extends JFrame {
 
         sideCards = new CardLayout();
         sideStack = new JPanel(sideCards);
+        discoveryPanel = new DiscoveryPanel(
+                service, session, eventLog, this::recommender,
+                people -> canvas.setSuggested(people),
+                () -> onGraphChanged("Connected."));
+
         sideStack.add(profileCard, SIDE_PROFILE);
         sideStack.add(scroll, SIDE_TEXT);
+        sideStack.add(discoveryPanel, SIDE_DISCOVER);
         sidePanel.add(sideStack, BorderLayout.CENTER);
 
         add(sidePanel, BorderLayout.EAST);
@@ -721,34 +731,11 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        List<Suggestion> suggestions = recommender().recommend(me, 8);
-        StringBuilder sb = new StringBuilder();
-        sb.append("=== People ").append(me.getName()).append(" should meet ===\n\n");
-
-        if (recommender().isColdStart(me)) {
-            sb.append("You don't have many connections yet, so these are based\n")
-              .append("entirely on your profile.\n\n");
-        }
-        if (suggestions.isEmpty()) {
-            sb.append("Nothing yet — add a few more interests to your profile.\n");
-        }
-        for (int i = 0; i < suggestions.size(); i++) {
-            Suggestion s = suggestions.get(i);
-            sb.append(i + 1).append(". ").append(s.person().getName()).append('\n');
-            sb.append("   ").append(s.explanation()).append('\n');
-            sb.append(String.format("   match %.0f%%%n%n", s.score() * 100));
-        }
-
-        pathDisplay.setText(sb.toString());
-        pathDisplay.setCaretPosition(0);
         sideTitle.setText("Who to meet");
-        sideCards.show(sideStack, SIDE_TEXT);
-
-        // Light the suggestions up on the canvas so the list maps onto the graph.
-        List<Person> highlight = new ArrayList<>();
-        for (Suggestion s : suggestions) highlight.add(s.person());
-        canvas.setSuggested(highlight);
-        statusLabel.setText(suggestions.size() + " suggestions for " + me.getName());
+        sideCards.show(sideStack, SIDE_DISCOVER);
+        discoveryPanel.refresh();
+        statusLabel.setText("Suggestions for " + me.getName()
+                + " — ghost lines on the canvas show who.");
     }
 
     /**
