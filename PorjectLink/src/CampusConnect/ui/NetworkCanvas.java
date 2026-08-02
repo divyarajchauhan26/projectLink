@@ -29,6 +29,8 @@ public class NetworkCanvas extends JPanel {
     private NodeMetrics.Metric heatmapMetric = NodeMetrics.Metric.PAGE_RANK;
     private List<Person[]> bridges = new ArrayList<>();
     private List<Person> visualizationStep = null; // For step-by-step animation
+    private Person currentUser = null;              // "You" — drawn with a gold ring
+    private List<Person> suggested = new ArrayList<>(); // Ghost-edge targets
 
     // Color palette for communities
     private static final Color[] COMMUNITY_COLORS = {
@@ -120,6 +122,26 @@ public class NetworkCanvas extends JPanel {
 
     public NodeMetrics.Metric getHeatmapMetric() { return heatmapMetric; }
 
+    /** Marks one node as "you", so the canvas has a point of reference. */
+    public void setCurrentUser(Person person) {
+        this.currentUser = person;
+        repaint();
+    }
+
+    public Person getCurrentUser() { return currentUser; }
+
+    /**
+     * People the recommender suggested. Drawn as dashed "ghost" edges from the current
+     * user — connections that do not exist yet but could, which is the whole idea of the
+     * affinity graph made visible.
+     */
+    public void setSuggested(List<Person> people) {
+        this.suggested = people != null ? people : new ArrayList<>();
+        repaint();
+    }
+
+    public void clearSuggested() { setSuggested(null); }
+
     public void setBridges(List<Person[]> bridges) {
         this.bridges = bridges != null ? bridges : new ArrayList<>();
         repaint();
@@ -205,6 +227,17 @@ public class NetworkCanvas extends JPanel {
             }
         }
 
+        // 1b. GHOST EDGES — suggested connections that do not exist yet
+        if (currentUser != null && !suggested.isEmpty()) {
+            Stroke ghost = new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                    0, new float[]{6, 8}, 0);
+            g2.setStroke(ghost);
+            g2.setColor(new Color(46, 204, 113, 150));
+            for (Person target : suggested) {
+                g2.drawLine(currentUser.getX(), currentUser.getY(), target.getX(), target.getY());
+            }
+        }
+
         // 2. PATH HIGHLIGHT
         if (highlightedPath != null && highlightedPath.size() > 1) {
             g2.setStroke(new BasicStroke(4));
@@ -252,6 +285,25 @@ public class NetworkCanvas extends JPanel {
                 g2.setStroke(new BasicStroke(3));
                 g2.setColor(new Color(155, 89, 182, 128)); // Semi-transparent purple
                 g2.drawOval(u.getX() - 28, u.getY() - 28, 56, 56);
+            }
+
+            // "You" marker — a solid gold ring, so the reference point for every
+            // relative view (similarity heatmap, suggestions) is never ambiguous.
+            if (u.equals(currentUser)) {
+                g2.setStroke(new BasicStroke(3));
+                g2.setColor(new Color(241, 196, 15));
+                g2.drawOval(u.getX() - 26, u.getY() - 26, 52, 52);
+            }
+
+            // Avatar emoji, drawn inside the node when the profile has one
+            String emoji = u.getAvatarEmoji();
+            if (emoji != null && !emoji.isBlank()) {
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                g2.setColor(Color.WHITE);
+                g2.drawString(emoji,
+                        u.getX() - fm.stringWidth(emoji) / 2,
+                        u.getY() + fm.getAscent() / 2 - 2);
             }
 
             // Name Label

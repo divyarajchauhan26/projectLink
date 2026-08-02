@@ -1,11 +1,14 @@
 package CampusConnect.ui;
 
 import CampusConnect.algorithm.*;
+import CampusConnect.app.AppSession;
 import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.Person;
 import CampusConnect.persist.CampusSeed;
 import CampusConnect.persist.GraphIO;
 import CampusConnect.service.NetworkService;
+import CampusConnect.service.RecommendationService;
+import CampusConnect.service.RecommendationService.Suggestion;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -19,11 +22,26 @@ import java.util.Set;
 
 public class MainFrame extends JFrame {
 
+    private static final String SIDE_PROFILE = "profile";
+    private static final String SIDE_TEXT = "text";
+
     private NetworkService service;
     private NetworkCanvas canvas;
     private StatsPanel statsPanel;
     private JLabel statusLabel;
-    private JTextArea pathDisplay; // The text box on the right
+    private JLabel userLabel;
+    private JTextArea pathDisplay; // Algorithm output
+    private ProfileCard profileCard;
+    private JPanel sideStack;
+    private CardLayout sideCards;
+    private JLabel sideTitle;
+
+    private final AppSession session = new AppSession();
+    /**
+     * Rebuilt lazily whenever the graph or a profile changes — every similarity weight
+     * depends on corpus-wide frequencies, so a stale engine scores against the old campus.
+     */
+    private RecommendationService recommender;
 
     // MODES for clicking on canvas
     private enum Mode { CONNECT, DISCONNECT, WAYPOINT, PATH, DELETE, VIEW, SET_WEIGHT }
@@ -109,16 +127,16 @@ public class MainFrame extends JFrame {
         statsPanel = new StatsPanel(service);
         add(statsPanel, BorderLayout.WEST);
 
-        // --- Right Text Panel ---
+        // --- Right Panel: a profile card OR algorithm output, swapped by CardLayout ---
         JPanel sidePanel = new JPanel(new BorderLayout());
-        sidePanel.setPreferredSize(new Dimension(280, 0));
+        sidePanel.setPreferredSize(new Dimension(300, 0));
         sidePanel.setBackground(new Color(43, 43, 43));
         sidePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        JLabel titleLbl = new JLabel("Output / Directions");
-        titleLbl.setForeground(Color.WHITE);
-        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        sidePanel.add(titleLbl, BorderLayout.NORTH);
+        sideTitle = new JLabel("Profile");
+        sideTitle.setForeground(Color.WHITE);
+        sideTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        sidePanel.add(sideTitle, BorderLayout.NORTH);
 
         pathDisplay = new JTextArea();
         pathDisplay.setEditable(false);
@@ -129,7 +147,14 @@ public class MainFrame extends JFrame {
 
         JScrollPane scroll = new JScrollPane(pathDisplay);
         scroll.setBorder(null);
-        sidePanel.add(scroll, BorderLayout.CENTER);
+
+        profileCard = new ProfileCard(service);
+
+        sideCards = new CardLayout();
+        sideStack = new JPanel(sideCards);
+        sideStack.add(profileCard, SIDE_PROFILE);
+        sideStack.add(scroll, SIDE_TEXT);
+        sidePanel.add(sideStack, BorderLayout.CENTER);
 
         add(sidePanel, BorderLayout.EAST);
 
@@ -138,10 +163,26 @@ public class MainFrame extends JFrame {
         statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         statusLabel.setForeground(new Color(200, 200, 200));
         statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        userLabel = new JLabel();
+        userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        userLabel.setForeground(new Color(150, 190, 230));
+        userLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
         JPanel statusPanel = new JPanel(new BorderLayout());
         statusPanel.setBackground(new Color(30, 30, 30));
         statusPanel.add(statusLabel, BorderLayout.CENTER);
+        statusPanel.add(userLabel, BorderLayout.EAST);
         add(statusPanel, BorderLayout.SOUTH);
+
+        // Anything that depends on "who am I" subscribes rather than being poked by hand
+        // at each call site — switching user has to refresh several things at once.
+        session.addListener(person -> {
+            userLabel.setText(person == null
+                    ? "Viewing as: nobody — Me ▸ Create My Profile"
+                    : "Viewing as: " + person.getAvatarEmoji() + " " + person.getName());
+            canvas.setCurrentUser(person);
+        });
 
         // --- Logic ---
         btnAdd.addActionListener(e -> {
@@ -263,6 +304,7 @@ public class MainFrame extends JFrame {
             List<Person[]> bridges = GraphAnalyzer.findBridges(service.getAllUsers(), service.getAdjacencyList());
             canvas.setBridges(bridges);
             Set<Person> articulation = GraphAnalyzer.findArticulationPoints(service.getAllUsers(), service.getAdjacencyList());
+            showText("Bridges");
             pathDisplay.setText("=== Critical Network Components ===\n\n");
             pathDisplay.append("Bridges Found: " + bridges.size() + " (Highlighted in Red)\n");
             for (Person[] b : bridges) {
@@ -278,6 +320,7 @@ public class MainFrame extends JFrame {
         itemCliques.addActionListener(e -> {
             List<Set<Person>> cliques = GraphAnalyzer.findMaximalCliques(service.getAllUsers(), service.getAdjacencyList());
             cliques.sort((a,b) -> Integer.compare(b.size(), a.size())); // largest first
+            showText("Cliques");
             pathDisplay.setText("=== Maximal Cliques (Size >= 2) ===\n\n");
             pathDisplay.append("Found " + cliques.size() + " cliques.\n\n");
             for (int i = 0; i < Math.min(10, cliques.size()); i++) {
@@ -287,6 +330,7 @@ public class MainFrame extends JFrame {
         
         itemDiameter.addActionListener(e -> {
             GraphAnalyzer.DiameterResult res = GraphAnalyzer.computeDiameterAndRadius(service.getAllUsers(), service.getAdjacencyList());
+            showText("Dimensions");
             pathDisplay.setText("=== Network Dimensions ===\n\n");
             pathDisplay.append("Diameter (Longest Shortest Path): " + res.diameter + "\n");
             if (res.peripheralNode != null) pathDisplay.append("Peripheral Node: " + res.peripheralNode.getName() + "\n");
@@ -310,6 +354,7 @@ public class MainFrame extends JFrame {
             List<FriendRecommender.Recommendation> recs = FriendRecommender.recommend(
                     selection, service.getAllUsers(), service.getAdjacencyList(), 10);
             
+            showText("Recommendations");
             pathDisplay.setText("=== Recommendations for " + selection.getName() + " ===\n\n");
             for (FriendRecommender.Recommendation rec : recs) {
                 pathDisplay.append(rec.user.getName() + "\nScore: " + String.format("%.3f", rec.score) + "\nReason: " + rec.reason + "\n\n");
@@ -334,7 +379,26 @@ public class MainFrame extends JFrame {
         
         menuView.add(viewNormal); menuView.add(viewHeatmap); menuView.add(viewCommunity);
 
+        // --- ME ---
+        JMenu menuMe = new JMenu("Me");
+        JMenuItem itemCreate = new JMenuItem("Create My Profile...");
+        JMenuItem itemSwitch = new JMenuItem("Sign in as an existing student...");
+        JMenuItem itemEdit = new JMenuItem("Edit My Profile...");
+        JMenuItem itemMatches = new JMenuItem("Who should I meet?");
+
+        itemCreate.addActionListener(e -> createProfile());
+        itemSwitch.addActionListener(e -> switchUser());
+        itemEdit.addActionListener(e -> editProfile());
+        itemMatches.addActionListener(e -> showMyMatches());
+
+        menuMe.add(itemCreate);
+        menuMe.add(itemSwitch);
+        menuMe.add(itemEdit);
+        menuMe.addSeparator();
+        menuMe.add(itemMatches);
+
         menuBar.add(menuFile);
+        menuBar.add(menuMe);
         menuBar.add(menuAlgo);
         menuBar.add(menuSocial);
         menuBar.add(menuView);
@@ -459,6 +523,7 @@ public class MainFrame extends JFrame {
                             selection, clicked, service.getAdjacencyList(), service.getEdgeWeights());
                     
                     canvas.setHighlightedPath(res.path, null);
+                    showText("Shortest Path");
                     statusLabel.setText("Dijkstra Path Found: " + (res.path.size()-1) + " hops, Cost: " + res.totalCost);
                     
                     if (res.path.isEmpty() && !selection.equals(clicked)) {
@@ -496,6 +561,7 @@ public class MainFrame extends JFrame {
                         throw new Exception("Cannot reach " + clicked.getName() + " from previous node!");
                     }
                     canvas.setHighlightedPath(fullPath, waypointSequence);
+                    showText("Custom Route");
                     statusLabel.setText("Path Extended. Total Steps: " + (fullPath.size()-1));
                     
                     StringBuilder sb = new StringBuilder();
@@ -508,6 +574,7 @@ public class MainFrame extends JFrame {
                 break;
 
             case DELETE:
+                session.forget(clicked);
                 service.removeUser(clicked);
                 onGraphChanged("Deleted " + clicked.getName());
                 break;
@@ -515,18 +582,7 @@ public class MainFrame extends JFrame {
             case VIEW:
                 selection = clicked;
                 canvas.setActiveSelection(selection);
-                
-                // Show info
-                pathDisplay.setText("=== Node Info ===\n\n");
-                pathDisplay.append("Name: " + clicked.getName() + "\n");
-                pathDisplay.append("Degree: " + service.getConnections(clicked).size() + "\n");
-                pathDisplay.append("PageRank: " + String.format("%.4f", clicked.getMetrics().getPageRank()) + "\n");
-                pathDisplay.append("Community ID: " + clicked.getMetrics().getCommunityId() + "\n");
-                pathDisplay.append("\nConnected to:\n");
-                for (Person f : service.getConnections(clicked)) {
-                    double w = service.getEdgeWeight(clicked, f);
-                    pathDisplay.append(" - " + f.getName() + " (w=" + w + ")\n");
-                }
+                showProfile(clicked);
                 break;
         }
     }
@@ -534,7 +590,131 @@ public class MainFrame extends JFrame {
     private void onGraphChanged(String statusMessage) {
         statusLabel.setText(statusMessage);
         statsPanel.updateStats();
+        // Every similarity weight is derived from corpus-wide frequencies, so a changed
+        // graph or profile invalidates the whole engine. Dropped here and rebuilt on
+        // next use rather than eagerly — most graph edits are never followed by a query.
+        recommender = null;
         canvas.repaint();
+    }
+
+    // ================= session & profiles =================
+
+    private RecommendationService recommender() {
+        if (recommender == null) recommender = new RecommendationService(service);
+        return recommender;
+    }
+
+    private void createProfile() {
+        OnboardingWizard wizard = new OnboardingWizard(this, service, null);
+        wizard.setVisible(true);
+        Person created = wizard.getResult();
+        if (created == null) return;
+
+        onGraphChanged("Welcome, " + created.getName() + "!");
+        session.setCurrentUser(created);
+        // Never leave a new user staring at an empty canvas — the payoff for filling in
+        // the form has to be immediate, so go straight to their matches.
+        showMyMatches();
+    }
+
+    private void switchUser() {
+        List<Person> people = new ArrayList<>(service.getAllUsers());
+        if (people.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "There is nobody on campus yet.");
+            return;
+        }
+        people.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+
+        Person chosen = (Person) JOptionPane.showInputDialog(this,
+                "Sign in as:", "Switch student", JOptionPane.PLAIN_MESSAGE, null,
+                people.toArray(), session.getCurrentUser());
+        if (chosen == null) return;
+
+        session.setCurrentUser(chosen);
+        statusLabel.setText("Signed in as " + chosen.getName());
+        showProfile(chosen);
+    }
+
+    private void editProfile() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this,
+                    "No profile selected yet. Use Me ▸ Create My Profile, or sign in as an "
+                            + "existing student.");
+            return;
+        }
+        OnboardingWizard wizard = new OnboardingWizard(this, service, me);
+        wizard.setVisible(true);
+        if (wizard.getResult() != null) {
+            onGraphChanged("Profile updated.");
+            showProfile(me);
+        }
+    }
+
+    private void showProfile(Person person) {
+        Person me = session.getCurrentUser();
+        String relation = null;
+
+        if (me != null && person != me) {
+            if (service.getConnections(me).contains(person)) {
+                relation = "You two are already connected.";
+            } else {
+                // Reuse the recommender's own reasoning rather than inventing a second
+                // explanation that could disagree with the ranking.
+                for (Suggestion s : recommender().recommend(me, 40)) {
+                    if (s.person() == person) { relation = s.explanation(); break; }
+                }
+            }
+        }
+
+        profileCard.showPerson(person, relation);
+        sideTitle.setText(person == me && me != null ? "Your Profile" : "Profile");
+        sideCards.show(sideStack, SIDE_PROFILE);
+    }
+
+    private void showMyMatches() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Tell us who you are first — Me ▸ Create My Profile, or sign in as an "
+                            + "existing student.");
+            return;
+        }
+
+        List<Suggestion> suggestions = recommender().recommend(me, 8);
+        StringBuilder sb = new StringBuilder();
+        sb.append("=== People ").append(me.getName()).append(" should meet ===\n\n");
+
+        if (recommender().isColdStart(me)) {
+            sb.append("You don't have many connections yet, so these are based\n")
+              .append("entirely on your profile.\n\n");
+        }
+        if (suggestions.isEmpty()) {
+            sb.append("Nothing yet — add a few more interests to your profile.\n");
+        }
+        for (int i = 0; i < suggestions.size(); i++) {
+            Suggestion s = suggestions.get(i);
+            sb.append(i + 1).append(". ").append(s.person().getName()).append('\n');
+            sb.append("   ").append(s.explanation()).append('\n');
+            sb.append(String.format("   match %.0f%%%n%n", s.score() * 100));
+        }
+
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        sideTitle.setText("Who to meet");
+        sideCards.show(sideStack, SIDE_TEXT);
+
+        // Light the suggestions up on the canvas so the list maps onto the graph.
+        List<Person> highlight = new ArrayList<>();
+        for (Suggestion s : suggestions) highlight.add(s.person());
+        canvas.setSuggested(highlight);
+        statusLabel.setText(suggestions.size() + " suggestions for " + me.getName());
+    }
+
+    /** Switches the side panel back to algorithm output. */
+    private void showText(String title) {
+        sideTitle.setText(title);
+        sideCards.show(sideStack, SIDE_TEXT);
     }
 
     private void resetSelection() {
@@ -558,6 +738,7 @@ public class MainFrame extends JFrame {
         canvas.setShowCommunities(false);
         canvas.setShowHeatmap(false);
         canvas.setVisualizationStep(null);
+        canvas.clearSuggested();
         pathDisplay.setText("");
     }
 
