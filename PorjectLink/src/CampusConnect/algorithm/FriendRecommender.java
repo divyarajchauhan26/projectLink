@@ -105,6 +105,30 @@ public class FriendRecommender {
     }
 
     /**
+     * Adamic-Adar index for a single pair: Σ 1/log(degree(z)) over common neighbours z.
+     * <p>
+     * The intuition is that a mutual friend who knows everybody is weak evidence, while a
+     * mutual friend who knows six people is strong evidence — the same rarity argument
+     * that IDF makes about interests. Extracted so the V2 recommender can use it as its
+     * structural term instead of reimplementing it.
+     */
+    public static double adamicAdar(Person a, Person b, Map<Person, List<Person>> adjacencyList) {
+        double score = 0.0;
+        for (Person z : commonNeighbours(a, b, adjacencyList)) {
+            int degree = adjacencyList.getOrDefault(z, Collections.emptyList()).size();
+            if (degree > 1) score += 1.0 / Math.log(degree);
+        }
+        return score;
+    }
+
+    /** Friends that both people share. */
+    public static List<Person> commonNeighbours(Person a, Person b, Map<Person, List<Person>> adjacencyList) {
+        Set<Person> shared = new HashSet<>(adjacencyList.getOrDefault(a, Collections.emptyList()));
+        shared.retainAll(new HashSet<>(adjacencyList.getOrDefault(b, Collections.emptyList())));
+        return new ArrayList<>(shared);
+    }
+
+    /**
      * Compute Jaccard similarity between two users.
      */
     public static double jaccardSimilarity(

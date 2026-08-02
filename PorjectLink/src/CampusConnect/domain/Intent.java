@@ -43,6 +43,24 @@ public enum Intent {
         };
     }
 
+    /**
+     * The label as it reads inside a sentence — "looking for <b>a jam session</b>".
+     * The display labels alone produce "looking for jam session", which is why this
+     * lives on the enum rather than being patched together at the call site.
+     */
+    public String asObject() {
+        return switch (this) {
+            case STUDY_PARTNER -> "a study partner";
+            case PROJECT_TEAM  -> "a project team";
+            case ROOMMATE      -> "a roommate";
+            case SPORTS_BUDDY  -> "a sports buddy";
+            case JAM_SESSION   -> "a jam session";
+            case MENTOR        -> "a mentor";
+            case MENTEE        -> "someone to guide";
+            case JUST_FRIENDS  -> "just friends";
+        };
+    }
+
     @Override
     public String toString() { return label; }
 }
