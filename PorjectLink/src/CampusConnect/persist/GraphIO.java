@@ -4,6 +4,7 @@ import CampusConnect.domain.Edge;
 import CampusConnect.domain.Intent;
 import CampusConnect.domain.InterestCatalog;
 import CampusConnect.domain.InterestTag;
+import CampusConnect.domain.Group;
 import CampusConnect.domain.Person;
 import CampusConnect.service.NetworkService;
 
@@ -32,7 +33,7 @@ import java.util.*;
 public final class GraphIO {
 
     /** Bump when the wire format changes shape. */
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -45,6 +46,14 @@ public final class GraphIO {
         String savedAt;
         List<PersonDto> people = new ArrayList<>();
         List<ConnectionDto> connections = new ArrayList<>();
+        List<GroupDto> groups = new ArrayList<>();
+    }
+
+    private static final class GroupDto {
+        String id, name, description, origin;
+        List<String> memberIds;
+        /** Canonical interest tag ids. */
+        List<String> tags;
     }
 
     private static final class PersonDto {
@@ -75,11 +84,12 @@ public final class GraphIO {
      * What happened during a load. Surfaced to the user rather than swallowed — silently
      * dropping half a file is far worse than saying so.
      */
-    public record LoadReport(int people, int connections, List<String> warnings) {
+    public record LoadReport(int people, int connections, List<Group> groups, List<String> warnings) {
         public boolean clean() { return warnings.isEmpty(); }
 
         public String summary() {
-            String s = people + " people, " + connections + " connections";
+            String s = people + " people, " + connections + " connections"
+                    + (groups.isEmpty() ? "" : ", " + groups.size() + " groups");
             return warnings.isEmpty() ? s : s + " (" + warnings.size() + " warning(s))";
         }
     }
@@ -87,6 +97,11 @@ public final class GraphIO {
     // ================= save =================
 
     public static void save(NetworkService service, File file) throws IOException {
+        save(service, List.of(), file);
+    }
+
+    /** Saves the graph together with any user-created groups. */
+    public static void save(NetworkService service, List<Group> groups, File file) throws IOException {
         GraphDto dto = new GraphDto();
         dto.savedAt = Instant.now().toString();
 
@@ -139,6 +154,23 @@ public final class GraphIO {
                 c.weight = service.getEdgeWeight(p, friend);
                 dto.connections.add(c);
             }
+        }
+
+        for (Group g : groups) {
+            // Derived groups are rebuilt from profiles on demand, so persisting them
+            // would let a saved copy drift out of step with the interests it came from.
+            if (g.getOrigin() == Group.Origin.INTEREST) continue;
+            GroupDto gd = new GroupDto();
+            gd.id = g.getId();
+            gd.name = g.getName();
+            gd.description = emptyToNull(g.getDescription());
+            gd.origin = g.getOrigin().name();
+            gd.memberIds = new ArrayList<>(g.getMemberIds());
+            if (!g.getTags().isEmpty()) {
+                gd.tags = new ArrayList<>();
+                g.getTags().forEach(t -> gd.tags.add(t.id()));
+            }
+            dto.groups.add(gd);
         }
 
         try (Writer w = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
@@ -247,7 +279,32 @@ public final class GraphIO {
             }
         }
 
-        return new LoadReport(service.getAllUsers().size(), edges, warnings);
+        List<Group> loadedGroups = new ArrayList<>();
+        if (dto.groups != null) {
+            for (GroupDto gd : dto.groups) {
+                if (gd == null || gd.id == null) continue;
+                Group.Origin origin;
+                try {
+                    origin = gd.origin == null ? Group.Origin.USER
+                            : Group.Origin.valueOf(gd.origin.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException ex) {
+                    origin = Group.Origin.USER;
+                }
+                Group g = new Group(gd.id, gd.name == null ? "Untitled" : gd.name, origin);
+                g.setDescription(gd.description);
+                g.setMemberIds(gd.memberIds);
+                if (gd.tags != null) {
+                    for (String tagId : gd.tags) {
+                        InterestCatalog.Resolution r = catalog.resolve(tagId);
+                        if (r.found()) g.addTag(r.tag());
+                        else warnings.add("Unknown interest '" + tagId + "' on group " + g.getName());
+                    }
+                }
+                loadedGroups.add(g);
+            }
+        }
+
+        return new LoadReport(service.getAllUsers().size(), edges, loadedGroups, warnings);
     }
 
     // ================= CSV export =================

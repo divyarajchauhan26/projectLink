@@ -8,6 +8,8 @@ import CampusConnect.persist.CampusSeed;
 import CampusConnect.persist.EventLog;
 import CampusConnect.persist.GraphIO;
 import CampusConnect.domain.InterestTag;
+import CampusConnect.domain.Group;
+import CampusConnect.service.GroupService;
 import CampusConnect.service.InsightService;
 import CampusConnect.service.NetworkService;
 import CampusConnect.service.RecommendationService;
@@ -49,6 +51,7 @@ public class MainFrame extends JFrame {
      */
     private RecommendationService recommender;
     private InsightService insightService;
+    private GroupService groupService;
 
     // MODES for clicking on canvas
     private enum Mode { CONNECT, DISCONNECT, PATH, DELETE, VIEW, SET_WEIGHT }
@@ -366,7 +369,26 @@ public class MainFrame extends JFrame {
 
         menuBar.add(menuFile);
         menuBar.add(menuMe);
+        // --- GROUPS ---
+        JMenu menuGroups = new JMenu("Groups");
+        JMenuItem itemBrowse = new JMenuItem("Browse interest groups");
+        JMenuItem itemFit = new JMenuItem("Groups I'd fit into");
+        JMenuItem itemSquadGroups = new JMenuItem("Name a squad as a group...");
+        JMenuItem itemMyGroups = new JMenuItem("My groups");
+
+        itemBrowse.addActionListener(e -> showInterestGroups());
+        itemFit.addActionListener(e -> showGroupsIdFitInto());
+        itemSquadGroups.addActionListener(e -> nameASquad());
+        itemMyGroups.addActionListener(e -> showMyGroups());
+
+        menuGroups.add(itemBrowse);
+        menuGroups.add(itemFit);
+        menuGroups.addSeparator();
+        menuGroups.add(itemSquadGroups);
+        menuGroups.add(itemMyGroups);
+
         menuBar.add(menuInsights);
+        menuBar.add(menuGroups);
         menuBar.add(menuView);
         setJMenuBar(menuBar);
     }
@@ -375,7 +397,7 @@ public class MainFrame extends JFrame {
         JFileChooser chooser = new JFileChooser();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
-                GraphIO.save(service, chooser.getSelectedFile());
+                GraphIO.save(service, groups().all(), chooser.getSelectedFile());
                 statusLabel.setText("Saved " + service.getAllUsers().size() + " profiles.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error saving: " + ex.getMessage());
@@ -536,6 +558,7 @@ public class MainFrame extends JFrame {
         // next use rather than eagerly — most graph edits are never followed by a query.
         recommender = null;
         insightService = null;
+        // groupService holds user-created groups, so it is refreshed rather than dropped.
         canvas.repaint();
     }
 
@@ -823,6 +846,114 @@ public class MainFrame extends JFrame {
         pathDisplay.setCaretPosition(0);
         showText("Fragile links");
         onGraphChanged(articulation.size() + " people hold campus together.");
+    }
+
+    // ================= groups =================
+
+    private GroupService groups() {
+        // Unlike the recommender, this is created once and kept: it owns user-created
+        // groups, which are real state rather than a derived cache.
+        if (groupService == null) groupService = new GroupService(service, insights());
+        return groupService;
+    }
+
+    private void showInterestGroups() {
+        List<Group> interestGroups = groups().interestGroups();
+
+        StringBuilder sb = new StringBuilder("=== Interest groups ===\n\n");
+        sb.append("Everyone who shares an interest is already a\n")
+          .append("group — these are found, not created.\n\n");
+
+        for (Group g : interestGroups) {
+            sb.append(g.getName()).append("  (").append(g.size()).append(" people)\n");
+            sb.append("  ").append(groups().cohesionLabel(g)).append('\n');
+            List<Person> members = groups().membersOf(g);
+            sb.append("  ");
+            for (int i = 0; i < members.size(); i++) {
+                if (i > 0) sb.append(", ");
+                if (i == 6) { sb.append("+").append(members.size() - 6).append(" more"); break; }
+                sb.append(members.get(i).getName());
+            }
+            sb.append("\n\n");
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Interest groups");
+        statusLabel.setText(interestGroups.size() + " interest groups on campus.");
+    }
+
+    private void showGroupsIdFitInto() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this, "Sign in first — Me ▸ Create My Profile.");
+            return;
+        }
+
+        List<GroupService.Fit> fits = groups().groupsYoudFitInto(me, 8);
+        StringBuilder sb = new StringBuilder("=== Groups " + me.getName() + " would fit ===\n\n");
+        if (fits.isEmpty()) {
+            sb.append("Nothing obvious yet — add a few interests\n")
+              .append("to your profile and try again.\n");
+        }
+        for (GroupService.Fit f : fits) {
+            sb.append(f.group().getName()).append('\n');
+            sb.append(String.format("  %.0f%% fit · %d people",
+                    f.score() * 100, f.group().size()));
+            if (f.membersKnown() > 0) {
+                sb.append(" · you know ").append(f.membersKnown());
+            }
+            sb.append('\n');
+            sb.append("  ").append(groups().cohesionLabel(f.group())).append("\n\n");
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Groups for you");
+        statusLabel.setText(fits.size() + " groups suit " + me.getName() + ".");
+    }
+
+    private void nameASquad() {
+        List<Group> squads = groups().suggestedSquads(3);
+        if (squads.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "No squads found yet — a squad is a set of 3+ people who all know "
+                            + "each other.");
+            return;
+        }
+
+        Group chosen = (Group) JOptionPane.showInputDialog(this,
+                "These people all already know each other.\nName one as a group:",
+                "Name a squad", JOptionPane.PLAIN_MESSAGE, null,
+                squads.toArray(), squads.get(0));
+        if (chosen == null) return;
+
+        String name = JOptionPane.showInputDialog(this, "Group name:", chosen.getName());
+        if (name == null || name.isBlank()) return;
+
+        chosen.setName(name.trim());
+        groups().add(chosen);
+        showMyGroups();
+        statusLabel.setText("Created group: " + name.trim());
+    }
+
+    private void showMyGroups() {
+        List<Group> created = groups().all();
+        StringBuilder sb = new StringBuilder("=== Groups ===\n\n");
+        if (created.isEmpty()) {
+            sb.append("No groups created yet.\n\n")
+              .append("Try Groups ▸ Name a squad as a group — the app\n")
+              .append("finds sets of people who all already know each\n")
+              .append("other and offers to name them.\n");
+        }
+        for (Group g : created) {
+            sb.append(g.getName()).append("  (").append(g.size()).append(" people)\n");
+            if (!g.getDescription().isBlank()) sb.append("  ").append(g.getDescription()).append('\n');
+            sb.append("  ").append(groups().cohesionLabel(g)).append('\n');
+            for (Person p : groups().membersOf(g)) sb.append("   · ").append(p.getName()).append('\n');
+            sb.append('\n');
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Groups");
     }
 
     /** Switches the side panel back to algorithm output. */
