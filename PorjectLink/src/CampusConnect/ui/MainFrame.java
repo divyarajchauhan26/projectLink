@@ -7,6 +7,8 @@ import CampusConnect.domain.Person;
 import CampusConnect.persist.CampusSeed;
 import CampusConnect.persist.EventLog;
 import CampusConnect.persist.GraphIO;
+import CampusConnect.domain.InterestTag;
+import CampusConnect.service.InsightService;
 import CampusConnect.service.NetworkService;
 import CampusConnect.service.RecommendationService;
 import CampusConnect.service.RecommendationService.Suggestion;
@@ -46,14 +48,14 @@ public class MainFrame extends JFrame {
      * depends on corpus-wide frequencies, so a stale engine scores against the old campus.
      */
     private RecommendationService recommender;
+    private InsightService insightService;
 
     // MODES for clicking on canvas
-    private enum Mode { CONNECT, DISCONNECT, WAYPOINT, PATH, DELETE, VIEW, SET_WEIGHT }
+    private enum Mode { CONNECT, DISCONNECT, PATH, DELETE, VIEW, SET_WEIGHT }
     private Mode currentMode = Mode.VIEW;
 
     // STATE
     private Person selection = null;
-    private List<Person> waypointSequence = new ArrayList<>();
 
     // PHYSICS ENGINE STATE
     private Timer physicsTimer;
@@ -89,7 +91,6 @@ public class MainFrame extends JFrame {
         JToggleButton btnDisconnect = createToggle(group, "Disconnect", Mode.DISCONNECT);
         JToggleButton btnWeight = createToggle(group, "Set Weight", Mode.SET_WEIGHT);
         JToggleButton btnPath = createToggle(group, "Shortest Path", Mode.PATH);
-        JToggleButton btnWaypoint = createToggle(group, "Custom Route", Mode.WAYPOINT);
         JToggleButton btnDelete = createToggle(group, "Delete", Mode.DELETE);
 
         JToggleButton btnPhysics = new JToggleButton("Physics");
@@ -116,7 +117,6 @@ public class MainFrame extends JFrame {
         toolBar.add(btnDelete);
         toolBar.addSeparator();
         toolBar.add(btnPath);
-        toolBar.add(btnWaypoint);
         toolBar.addSeparator();
         toolBar.add(btnPhysics);
         toolBar.add(Box.createHorizontalGlue());
@@ -215,14 +215,13 @@ public class MainFrame extends JFrame {
                 } catch (Exception ex) {
                     statusLabel.setText("Error: " + ex.getMessage());
                     JOptionPane.showMessageDialog(this, "Operation failed: " + ex.getMessage());
-                    if (currentMode == Mode.WAYPOINT) resetWaypointsButKeepLast(clicked);
                 }
             }
         });
         
         canvas.addPropertyChangeListener("canvasClicked", evt -> {
             // Deselect on empty click
-            if (currentMode != Mode.WAYPOINT) resetSelection();
+            resetSelection();
         });
 
         physicsTimer = new Timer(30, e -> {
@@ -263,115 +262,33 @@ public class MainFrame extends JFrame {
         menuFile.add(itemSave); menuFile.add(itemLoad); menuFile.addSeparator();
         menuFile.add(itemExport); menuFile.addSeparator(); menuFile.add(itemClear);
 
-        // --- ALGORITHMS ---
-        JMenu menuAlgo = new JMenu("Algorithms");
-        JMenuItem itemPageRank = new JMenuItem("Compute PageRank (Heatmap)");
-        
-        JMenu menuCentrality = new JMenu("Centrality");
-        JMenuItem centBetw = new JMenuItem("Betweenness Centrality");
-        JMenuItem centClose = new JMenuItem("Closeness Centrality");
-        JMenuItem centDeg = new JMenuItem("Degree Centrality");
-        
-        JMenuItem itemCommunity = new JMenuItem("Detect Communities (Louvain)");
-        JMenuItem itemBridges = new JMenuItem("Find Bridges & Articulation Points");
-        JMenuItem itemCliques = new JMenuItem("Find Cliques");
-        JMenuItem itemDiameter = new JMenuItem("Compute Diameter/Radius");
-        
-        // Each metric now writes to its own field and tells the canvas which one to
-        // colour by, so the heatmap and its label can no longer disagree.
-        itemPageRank.addActionListener(e -> {
-            PageRank.compute(service.getAllUsers(), service.getAdjacencyList());
-            canvas.setHeatmapMetric(NodeMetrics.Metric.PAGE_RANK);
-            onGraphChanged("PageRank computed. Heatmap enabled.");
-        });
+        // --- INSIGHTS ---
+        // Rewritten from the old Algorithms menu. The algorithms are unchanged; what
+        // changed is that each item now answers a question a student would actually ask.
+        // Items whose output could not be phrased as a sentence about a person -- custom
+        // routing, cycle detection, diameter as a bare number -- were removed rather than
+        // reworded.
+        JMenu menuInsights = new JMenu("Insights");
+        JMenuItem itemCircles = new JMenuItem("Your Circles");
+        JMenuItem itemSquads = new JMenuItem("Squads (everyone knows everyone)");
+        JMenuItem itemIsolated = new JMenuItem("Who the network is failing");
+        JMenuItem itemAboutMe = new JMenuItem("What am I in this network?");
+        JMenuItem itemFragile = new JMenuItem("Who holds campus together");
 
-        centBetw.addActionListener(e -> {
-            Map<Person, Double> res = CentralityMetrics.betweennessCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.getMetrics().setBetweenness(v));
-            canvas.setHeatmapMetric(NodeMetrics.Metric.BETWEENNESS);
-            onGraphChanged("Betweenness Centrality computed.");
-        });
-        centClose.addActionListener(e -> {
-            Map<Person, Double> res = CentralityMetrics.closenessCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.getMetrics().setCloseness(v));
-            canvas.setHeatmapMetric(NodeMetrics.Metric.CLOSENESS);
-            onGraphChanged("Closeness Centrality computed.");
-        });
-        centDeg.addActionListener(e -> {
-            Map<Person, Double> res = CentralityMetrics.degreeCentrality(service.getAllUsers(), service.getAdjacencyList());
-            res.forEach((u, v) -> u.getMetrics().setDegree(v));
-            canvas.setHeatmapMetric(NodeMetrics.Metric.DEGREE);
-            onGraphChanged("Degree Centrality computed.");
-        });
-        
-        itemCommunity.addActionListener(e -> {
-            CommunityDetection.detectCommunities(service.getAllUsers(), service.getAdjacencyList());
-            canvas.setShowCommunities(true);
-            onGraphChanged("Communities detected.");
-        });
-        
-        itemBridges.addActionListener(e -> {
-            List<Person[]> bridges = GraphAnalyzer.findBridges(service.getAllUsers(), service.getAdjacencyList());
-            canvas.setBridges(bridges);
-            Set<Person> articulation = GraphAnalyzer.findArticulationPoints(service.getAllUsers(), service.getAdjacencyList());
-            showText("Bridges");
-            pathDisplay.setText("=== Critical Network Components ===\n\n");
-            pathDisplay.append("Bridges Found: " + bridges.size() + " (Highlighted in Red)\n");
-            for (Person[] b : bridges) {
-                pathDisplay.append(" - " + b[0].getName() + " <-> " + b[1].getName() + "\n");
-            }
-            pathDisplay.append("\nArticulation Points: " + articulation.size() + "\n");
-            for (Person u : articulation) {
-                pathDisplay.append(" - " + u.getName() + "\n");
-            }
-            canvas.repaint();
-        });
-        
-        itemCliques.addActionListener(e -> {
-            List<Set<Person>> cliques = GraphAnalyzer.findMaximalCliques(service.getAllUsers(), service.getAdjacencyList());
-            cliques.sort((a,b) -> Integer.compare(b.size(), a.size())); // largest first
-            showText("Cliques");
-            pathDisplay.setText("=== Maximal Cliques (Size >= 2) ===\n\n");
-            pathDisplay.append("Found " + cliques.size() + " cliques.\n\n");
-            for (int i = 0; i < Math.min(10, cliques.size()); i++) {
-                pathDisplay.append("Size " + cliques.get(i).size() + ": " + cliques.get(i).toString() + "\n");
-            }
-        });
-        
-        itemDiameter.addActionListener(e -> {
-            GraphAnalyzer.DiameterResult res = GraphAnalyzer.computeDiameterAndRadius(service.getAllUsers(), service.getAdjacencyList());
-            showText("Dimensions");
-            pathDisplay.setText("=== Network Dimensions ===\n\n");
-            pathDisplay.append("Diameter (Longest Shortest Path): " + res.diameter + "\n");
-            if (res.peripheralNode != null) pathDisplay.append("Peripheral Node: " + res.peripheralNode.getName() + "\n");
-            pathDisplay.append("\nRadius (Shortest Max Path): " + res.radius + "\n");
-            if (res.centerNode != null) pathDisplay.append("Center Node: " + res.centerNode.getName() + "\n");
-        });
+        itemCircles.addActionListener(e -> showCircles());
+        itemSquads.addActionListener(e -> showSquads());
+        itemIsolated.addActionListener(e -> showIsolated());
+        itemAboutMe.addActionListener(e -> showMyRole());
+        itemFragile.addActionListener(e -> showFragility());
 
-        menuCentrality.add(centBetw); menuCentrality.add(centClose); menuCentrality.add(centDeg);
-        menuAlgo.add(itemPageRank); menuAlgo.add(menuCentrality); menuAlgo.addSeparator();
-        menuAlgo.add(itemCommunity); menuAlgo.add(itemBridges); menuAlgo.add(itemCliques); menuAlgo.add(itemDiameter);
+        menuInsights.add(itemCircles);
+        menuInsights.add(itemSquads);
+        menuInsights.addSeparator();
+        menuInsights.add(itemAboutMe);
+        menuInsights.add(itemFragile);
+        menuInsights.addSeparator();
+        menuInsights.add(itemIsolated);
 
-        // --- SOCIAL ---
-        JMenu menuSocial = new JMenu("Social");
-        JMenuItem itemRecommend = new JMenuItem("Friend Recommendations (Jaccard)");
-        
-        itemRecommend.addActionListener(e -> {
-            if (selection == null) {
-                JOptionPane.showMessageDialog(this, "Select a user on the canvas first.");
-                return;
-            }
-            List<FriendRecommender.Recommendation> recs = FriendRecommender.recommend(
-                    selection, service.getAllUsers(), service.getAdjacencyList(), 10);
-            
-            showText("Recommendations");
-            pathDisplay.setText("=== Recommendations for " + selection.getName() + " ===\n\n");
-            for (FriendRecommender.Recommendation rec : recs) {
-                pathDisplay.append(rec.user.getName() + "\nScore: " + String.format("%.3f", rec.score) + "\nReason: " + rec.reason + "\n\n");
-            }
-        });
-        
-        menuSocial.add(itemRecommend);
         
         // --- VIEW ---
         JMenu menuView = new JMenu("View");
@@ -449,8 +366,7 @@ public class MainFrame extends JFrame {
 
         menuBar.add(menuFile);
         menuBar.add(menuMe);
-        menuBar.add(menuAlgo);
-        menuBar.add(menuSocial);
+        menuBar.add(menuInsights);
         menuBar.add(menuView);
         setJMenuBar(menuBar);
     }
@@ -597,31 +513,6 @@ public class MainFrame extends JFrame {
                 }
                 break;
 
-            case WAYPOINT: 
-                waypointSequence.add(clicked);
-                canvas.setActiveSelection(clicked);
-
-                if (waypointSequence.size() == 1) {
-                    statusLabel.setText("Path Start: " + clicked.getName());
-                    pathDisplay.setText("Starting at " + clicked.getName() + "...\nSelect next stop.");
-                } else {
-                    List<Person> fullPath = service.findPathThroughWaypoints(waypointSequence);
-                    if (fullPath.isEmpty()) {
-                        waypointSequence.remove(clicked);
-                        throw new Exception("Cannot reach " + clicked.getName() + " from previous node!");
-                    }
-                    canvas.setHighlightedPath(fullPath, waypointSequence);
-                    showText("Custom Route");
-                    statusLabel.setText("Path Extended. Total Steps: " + (fullPath.size()-1));
-                    
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("=== Custom Route ===\n\n");
-                    for (int i = 0; i < fullPath.size(); i++) {
-                        sb.append(i + 1).append(". ").append(fullPath.get(i).getName()).append("\n");
-                    }
-                    pathDisplay.setText(sb.toString());
-                }
-                break;
 
             case DELETE:
                 session.forget(clicked);
@@ -644,6 +535,7 @@ public class MainFrame extends JFrame {
         // graph or profile invalidates the whole engine. Dropped here and rebuilt on
         // next use rather than eagerly — most graph edits are never followed by a query.
         recommender = null;
+        insightService = null;
         canvas.repaint();
     }
 
@@ -766,6 +658,173 @@ public class MainFrame extends JFrame {
         statusLabel.setText("Campus coloured by how well each person matches " + me.getName());
     }
 
+    // ================= insights =================
+
+    private InsightService insights() {
+        if (insightService == null) insightService = new InsightService(service);
+        return insightService;
+    }
+
+    private void showCircles() {
+        List<InsightService.Circle> circles = insights().circles();
+        canvas.setShowCommunities(true);
+
+        StringBuilder sb = new StringBuilder("=== Your Circles ===\n\n");
+        sb.append("Groups the network found on its own, named\n")
+          .append("after what their members share.\n\n");
+
+        for (InsightService.Circle c : circles) {
+            sb.append(c.name()).append('\n');
+            sb.append("  ").append(c.size()).append(" people · ")
+              .append(String.format("%.0f%% ", c.density() * 100))
+              .append(c.density() > 0.6 ? "tight-knit" : c.density() > 0.3 ? "well connected" : "loose")
+              .append('\n');
+            sb.append("  ");
+            for (int i = 0; i < c.members().size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(c.members().get(i).getName());
+            }
+            sb.append("\n\n");
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Your Circles");
+        onGraphChanged(circles.size() + " circles found.");
+    }
+
+    private void showSquads() {
+        List<InsightService.Squad> squads = insights().squads(3);
+
+        StringBuilder sb = new StringBuilder("=== Squads ===\n\n");
+        sb.append("Groups where everyone knows everyone else.\n\n");
+        if (squads.isEmpty()) sb.append("No squads of 3 or more yet.\n");
+
+        for (int i = 0; i < Math.min(12, squads.size()); i++) {
+            InsightService.Squad s = squads.get(i);
+            sb.append(s.size()).append(" people");
+            if (s.sharedInterest() != null) sb.append(" · all into ").append(s.sharedInterest());
+            sb.append('\n').append("  ");
+            for (int j = 0; j < s.members().size(); j++) {
+                if (j > 0) sb.append(", ");
+                sb.append(s.members().get(j).getName());
+            }
+            sb.append("\n\n");
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Squads");
+        statusLabel.setText(squads.size() + " squads of 3 or more.");
+    }
+
+    private void showIsolated() {
+        List<InsightService.Isolated> isolated = insights().isolated();
+
+        StringBuilder sb = new StringBuilder("=== Who the network is failing ===\n\n");
+        if (isolated.isEmpty()) {
+            sb.append("Nobody is stranded. Everyone has a way in.\n");
+        } else {
+            sb.append("These students are hard to reach. The kindest\n")
+              .append("thing the app can do is surface them to others.\n\n");
+            for (InsightService.Isolated i : isolated) {
+                sb.append(i.person().getName()).append('\n')
+                  .append("  ").append(i.reason()).append('\n');
+                if (!i.person().getInterests().isEmpty()) {
+                    sb.append("  into: ");
+                    int n = 0;
+                    for (InterestTag t : i.person().getInterests()) {
+                        if (n++ > 0) sb.append(", ");
+                        if (n > 3) { sb.append("…"); break; }
+                        sb.append(t.label());
+                    }
+                    sb.append('\n');
+                }
+                sb.append('\n');
+            }
+        }
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Needs a hand");
+        statusLabel.setText(isolated.size() + " students are barely connected.");
+    }
+
+    private void showMyRole() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this,
+                    "This is about you, so sign in first — Me ▸ Create My Profile.");
+            return;
+        }
+
+        List<InsightService.Circle> circles = insights().circles();
+        String archetype = insights().archetype(me);
+        int oneHop = insights().reachWithin(me, 1);
+        int twoHop = insights().reachWithin(me, 2);
+        int threeHop = insights().reachWithin(me, 3);
+
+        StringBuilder sb = new StringBuilder("=== " + me.getName() + " ===\n\n");
+        sb.append("You are: ").append(archetype).append("\n\n");
+        sb.append("Reach\n");
+        sb.append("  ").append(oneHop).append(" friends\n");
+        sb.append("  ").append(twoHop).append(" people within 2 handshakes\n");
+        sb.append("  ").append(threeHop).append(" within 3\n\n");
+
+        for (InsightService.Circle c : circles) {
+            if (c.members().contains(me)) {
+                sb.append("Your circle\n  ").append(c.name())
+                  .append(" (").append(c.size()).append(" people)\n\n");
+                break;
+            }
+        }
+
+        List<String> bridges = insights().bridgesBetween(me, circles);
+        if (!bridges.isEmpty()) {
+            sb.append("You connect your circle to\n");
+            for (String b : bridges) sb.append("  · ").append(b).append('\n');
+            sb.append('\n');
+        }
+
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("About you");
+        statusLabel.setText(me.getName() + " is a " + archetype + ".");
+    }
+
+    private void showFragility() {
+        List<Person[]> bridges =
+                GraphAnalyzer.findBridges(service.getAllUsers(), service.getAdjacencyList());
+        Set<Person> articulation =
+                GraphAnalyzer.findArticulationPoints(service.getAllUsers(), service.getAdjacencyList());
+        canvas.setBridges(bridges);
+
+        StringBuilder sb = new StringBuilder("=== Who holds campus together ===\n\n");
+        if (articulation.isEmpty()) {
+            sb.append("Nobody is a single point of failure —\n")
+              .append("the network would survive anyone leaving.\n\n");
+        } else {
+            sb.append("If these people left, others would lose\n")
+              .append("touch with the rest of campus.\n\n");
+            for (Person p : articulation) {
+                sb.append("  ").append(p.getName()).append('\n');
+            }
+            sb.append('\n');
+        }
+
+        sb.append("Fragile friendships (highlighted red)\n");
+        if (bridges.isEmpty()) {
+            sb.append("  None — every link has a backup route.\n");
+        } else {
+            for (Person[] b : bridges) {
+                sb.append("  ").append(b[0].getName()).append(" — ").append(b[1].getName())
+                  .append('\n');
+            }
+        }
+
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Fragile links");
+        onGraphChanged(articulation.size() + " people hold campus together.");
+    }
+
     /** Switches the side panel back to algorithm output. */
     private void showText(String title) {
         sideTitle.setText(title);
@@ -777,17 +836,12 @@ public class MainFrame extends JFrame {
         canvas.setActiveSelection(null);
     }
 
-    private void resetWaypointsButKeepLast(Person last) {
-        resetSelection();
-        canvas.setActiveSelection(last);
-    }
 
     /**
      * Resets visual overlays (path highlights, bridges, heatmaps) without clearing graph data.
      */
     private void resetVisualState() {
         resetSelection();
-        waypointSequence.clear();
         canvas.setHighlightedPath(Collections.emptyList(), null);
         canvas.setBridges(null);
         canvas.setShowCommunities(false);
