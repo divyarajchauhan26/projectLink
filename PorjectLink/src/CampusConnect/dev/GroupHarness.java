@@ -93,7 +93,7 @@ public class GroupHarness {
     private static void fit(NetworkService svc, GroupService groups) {
         System.out.println("\n=== WHERE WOULD THEY FIT? ===");
 
-        for (String name : new String[]{"Aarav Jain", "Tanvi Deshmukh", "Om Prakash"}) {
+        for (String name : new String[]{"Aarav Jain", "Tanvi Deshmukh", "Divya Reddy"}) {
             Person p = svc.findUserByName(name);
             List<GroupService.Fit> fits = groups.groupsYoudFitInto(p, 3);
             System.out.println("  " + name + ":");

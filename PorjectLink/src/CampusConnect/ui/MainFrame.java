@@ -81,11 +81,12 @@ public class MainFrame extends JFrame {
         // --- Toolbar ---
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
-        toolBar.setBackground(new Color(60, 63, 65));
+        toolBar.setBackground(Theme.PANEL);
+        toolBar.setBorder(Theme.divider(0, 0, 1, 0));
 
         JButton btnAdd = new JButton("Add User");
-        btnAdd.setBackground(new Color(46, 204, 113));
-        btnAdd.setForeground(Color.WHITE);
+        btnAdd.setBackground(Theme.SUCCESS);
+        btnAdd.setForeground(Theme.BG);
 
         ButtonGroup group = new ButtonGroup();
         // Inspect is the default mode, so it needs a button of its own — a ButtonGroup
@@ -140,19 +141,19 @@ public class MainFrame extends JFrame {
         // --- Right Panel: a profile card OR algorithm output, swapped by CardLayout ---
         JPanel sidePanel = new JPanel(new BorderLayout());
         sidePanel.setPreferredSize(new Dimension(300, 0));
-        sidePanel.setBackground(new Color(43, 43, 43));
+        sidePanel.setBackground(Theme.PANEL);
         sidePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         sideTitle = new JLabel("Profile");
-        sideTitle.setForeground(Color.WHITE);
-        sideTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        sideTitle.setForeground(Theme.TEXT);
+        sideTitle.setFont(Theme.title(13));
         sidePanel.add(sideTitle, BorderLayout.NORTH);
 
         pathDisplay = new JTextArea();
         pathDisplay.setEditable(false);
-        pathDisplay.setBackground(new Color(60, 63, 65));
-        pathDisplay.setForeground(new Color(220, 220, 220));
-        pathDisplay.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        pathDisplay.setBackground(Theme.PANEL);
+        pathDisplay.setForeground(Theme.TEXT);
+        pathDisplay.setFont(Theme.mono(12));
         pathDisplay.setMargin(new Insets(10, 10, 10, 10));
 
         JScrollPane scroll = new JScrollPane(pathDisplay);
@@ -176,17 +177,18 @@ public class MainFrame extends JFrame {
 
         // --- Bottom Status ---
         statusLabel = new JLabel("Welcome to Campus Connect!");
-        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        statusLabel.setForeground(new Color(200, 200, 200));
+        statusLabel.setFont(Theme.body(12));
+        statusLabel.setForeground(Theme.TEXT_DIM);
         statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
 
         userLabel = new JLabel();
-        userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        userLabel.setForeground(new Color(150, 190, 230));
+        userLabel.setFont(Theme.title(12));
+        userLabel.setForeground(Theme.YOU);
         userLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
 
         JPanel statusPanel = new JPanel(new BorderLayout());
-        statusPanel.setBackground(new Color(30, 30, 30));
+        statusPanel.setBackground(Theme.BG);
+        statusPanel.setBorder(Theme.divider(1, 0, 0, 0));
         statusPanel.add(statusLabel, BorderLayout.CENTER);
         statusPanel.add(userLabel, BorderLayout.EAST);
         add(statusPanel, BorderLayout.SOUTH);
@@ -196,7 +198,7 @@ public class MainFrame extends JFrame {
         session.addListener(person -> {
             userLabel.setText(person == null
                     ? "Viewing as: nobody — Me ▸ Create My Profile"
-                    : "Viewing as: " + person.getAvatarEmoji() + " " + person.getName());
+                    : "  ●  Viewing as " + person.getAvatarEmoji() + " " + person.getName());
             canvas.setCurrentUser(person);
         });
 
@@ -238,10 +240,24 @@ public class MainFrame extends JFrame {
         });
         physicsTimer.start();
 
-        // Load a rich default graph after the window is visible
+        // Load the campus after the window is visible
         SwingUtilities.invokeLater(() -> {
             loadDefaultGraph();
-            onGraphChanged("Default campus network loaded. Explore!");
+            onGraphChanged("Campus loaded.");
+
+            // Sign in as the one student with no connections at all.
+            // Opening as nobody meant every intelligent feature — suggestions, the
+            // similarity map, warm intros — sat behind a menu the user had no reason to
+            // open, so the app looked like the graph editor it used to be. Starting as
+            // Aarav puts the recommender on screen immediately, and he is the honest
+            // demonstration: no friends, so nothing on his feed can come from the graph.
+            Person demo = service.findUserByName("Aarav Jain");
+            if (demo != null && !session.hasCurrentUser()) {
+                session.setCurrentUser(demo);
+                showMyMatches();
+                statusLabel.setText("Viewing as Aarav, a first-year who knows nobody yet — "
+                        + "every suggestion below comes from his profile alone.");
+            }
         });
     }
 

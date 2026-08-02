@@ -66,21 +66,21 @@ public class DiscoveryPanel extends JPanel {
         this.onGraphChanged = onGraphChanged;
 
         setLayout(new BorderLayout(0, 8));
-        setBackground(new Color(43, 43, 43));
+        setBackground(Theme.PANEL);
 
         add(buildHeader(), BorderLayout.NORTH);
 
         cardStack.setLayout(new BoxLayout(cardStack, BoxLayout.Y_AXIS));
-        cardStack.setBackground(new Color(43, 43, 43));
+        cardStack.setBackground(Theme.PANEL);
 
         JScrollPane scroll = new JScrollPane(cardStack);
         scroll.setBorder(null);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
-        scroll.getViewport().setBackground(new Color(43, 43, 43));
+        scroll.getViewport().setBackground(Theme.PANEL);
         add(scroll, BorderLayout.CENTER);
 
         add(statsLabel, BorderLayout.SOUTH);
-        statsLabel.setForeground(new Color(130, 130, 130));
+        statsLabel.setForeground(Theme.TEXT_FAINT);
         statsLabel.setFont(statsLabel.getFont().deriveFont(Font.PLAIN, 10f));
 
         session.addListener(p -> refresh());
@@ -90,15 +90,15 @@ public class DiscoveryPanel extends JPanel {
         JPanel header = new JPanel(new BorderLayout(0, 4));
         header.setOpaque(false);
 
-        headerLabel.setForeground(Color.WHITE);
-        headerLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        headerLabel.setForeground(Theme.TEXT);
+        headerLabel.setFont(Theme.title(13));
         header.add(headerLabel, BorderLayout.NORTH);
 
         JPanel sliderRow = new JPanel(new BorderLayout(6, 0));
         sliderRow.setOpaque(false);
 
         JLabel caption = new JLabel("Similar ← → Surprising");
-        caption.setForeground(new Color(140, 140, 140));
+        caption.setForeground(Theme.TEXT_FAINT);
         caption.setFont(caption.getFont().deriveFont(Font.PLAIN, 10f));
 
         serendipitySlider.setOpaque(false);
@@ -176,9 +176,9 @@ public class DiscoveryPanel extends JPanel {
 
         JPanel card = new JPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBackground(new Color(52, 54, 57));
+        card.setBackground(Theme.ELEVATED);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(70, 70, 70)),
+                Theme.divider(0, 0, 1, 0),
                 new EmptyBorder(10, 12, 12, 12)));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 250));
@@ -186,15 +186,15 @@ public class DiscoveryPanel extends JPanel {
         // name row
         String emoji = them.getAvatarEmoji().isBlank() ? "🙂" : them.getAvatarEmoji();
         JLabel name = new JLabel(emoji + "  " + them.getName());
-        name.setForeground(Color.WHITE);
-        name.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        name.setForeground(Theme.TEXT);
+        name.setFont(Theme.title(14));
         name.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(name);
 
         String sub = subtitle(them);
         if (!sub.isBlank()) {
             JLabel subtitle = new JLabel(sub);
-            subtitle.setForeground(new Color(150, 150, 150));
+            subtitle.setForeground(Theme.TEXT_DIM);
             subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
             subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
             card.add(subtitle);
@@ -205,7 +205,7 @@ public class DiscoveryPanel extends JPanel {
         // the reason — the most important line on the card
         JLabel why = new JLabel("<html><body style='width:230px'>"
                 + escape(suggestion.explanation()) + "</body></html>");
-        why.setForeground(new Color(190, 214, 190));
+        why.setForeground(Theme.ACCENT);
         why.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         why.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.add(why);
@@ -213,7 +213,7 @@ public class DiscoveryPanel extends JPanel {
         String shared = sharedInterests(me, them);
         if (!shared.isBlank()) {
             JLabel tags = new JLabel("<html><body style='width:230px'>" + escape(shared) + "</body></html>");
-            tags.setForeground(new Color(140, 160, 190));
+            tags.setForeground(Theme.TEXT_DIM);
             tags.setFont(new Font("Segoe UI", Font.PLAIN, 10));
             tags.setAlignmentX(Component.LEFT_ALIGNMENT);
             card.add(Box.createVerticalStrut(4));
@@ -228,15 +228,15 @@ public class DiscoveryPanel extends JPanel {
         buttons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
 
         JButton connect = new JButton("Connect");
-        connect.setBackground(new Color(46, 204, 113));
-        connect.setForeground(Color.WHITE);
+        connect.setBackground(Theme.SUCCESS);
+        connect.setForeground(Theme.BG);
         connect.addActionListener(e -> connect(me, suggestion));
 
         JButton dismiss = new JButton("Not interested");
         dismiss.addActionListener(e -> dismiss(me, suggestion));
 
         JLabel score = new JLabel(String.format("%.0f%% match", suggestion.score() * 100));
-        score.setForeground(new Color(120, 120, 120));
+        score.setForeground(Theme.TEXT_FAINT);
         score.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 
         buttons.add(connect);
@@ -318,7 +318,7 @@ public class DiscoveryPanel extends JPanel {
 
     private JLabel message(String text) {
         JLabel l = new JLabel("<html><body style='width:230px'>" + escape(text) + "</body></html>");
-        l.setForeground(new Color(150, 150, 150));
+        l.setForeground(Theme.TEXT_DIM);
         l.setBorder(new EmptyBorder(16, 12, 16, 12));
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
@@ -326,7 +326,7 @@ public class DiscoveryPanel extends JPanel {
 
     private JLabel note(String text) {
         JLabel l = message(text);
-        l.setForeground(new Color(200, 175, 110));
+        l.setForeground(Theme.YOU);
         return l;
     }
 

@@ -1,5 +1,6 @@
 package CampusConnect.ui;
 
+import CampusConnect.domain.Category;
 import CampusConnect.domain.NodeMetrics;
 import CampusConnect.domain.Person;
 import CampusConnect.service.NetworkService;
@@ -29,6 +30,9 @@ public class NetworkCanvas extends JPanel {
     private NodeMetrics.Metric heatmapMetric = NodeMetrics.Metric.PAGE_RANK;
     private List<Person[]> bridges = new ArrayList<>();
     private List<Person> visualizationStep = null; // For step-by-step animation
+    /** Node radius. Hit-testing in {@link Person#contains} uses the same 20px. */
+    private static final int NODE_R = 20;
+
     private Person currentUser = null;              // "You" — drawn with a gold ring
     private List<Person> suggested = new ArrayList<>(); // Ghost-edge targets
 
@@ -48,7 +52,7 @@ public class NetworkCanvas extends JPanel {
 
     public NetworkCanvas(NetworkService service) {
         this.service = service;
-        this.setBackground(new Color(43, 43, 43));
+        this.setBackground(Theme.BG);
 
         addMouseListener(new MouseAdapter() {
             @Override
@@ -161,25 +165,37 @@ public class NetworkCanvas extends JPanel {
         return null;
     }
 
+    /**
+     * Cold-to-hot ramp for the heatmap.
+     * <p>
+     * Deep indigo through violet to amber, rather than the old blue-yellow-red. Red and
+     * green were carrying two other meanings on this canvas already — fragile links and
+     * highlighted routes — so a ramp that ran through both made a hot node and a broken
+     * connection look like the same statement.
+     */
     private Color getHeatmapColor(double value) {
-        // value should be 0.0 to 1.0. 
-        // 0.0 -> Blue, 0.5 -> Yellow, 1.0 -> Red
         value = Math.max(0.0, Math.min(1.0, value));
-        if (value < 0.5) {
-            // Blue to Yellow
-            double t = value * 2.0;
-            int r = (int)(52 * (1-t) + 241 * t);
-            int g = (int)(152 * (1-t) + 196 * t);
-            int b = (int)(219 * (1-t) + 15 * t);
-            return new Color(r, g, b);
-        } else {
-            // Yellow to Red
-            double t = (value - 0.5) * 2.0;
-            int r = (int)(241 * (1-t) + 231 * t);
-            int g = (int)(196 * (1-t) + 76 * t);
-            int b = (int)(15 * (1-t) + 60 * t);
-            return new Color(r, g, b);
+        Color cold = new Color(0x2A3356);
+        Color mid  = new Color(0x7C6BD6);
+        Color hot  = new Color(0xF0A94E);
+        return value < 0.5
+                ? Theme.mix(cold, mid, value * 2.0)
+                : Theme.mix(mid, hot, (value - 0.5) * 2.0);
+    }
+
+    /** The fill for a node, resolved by precedence: explicit states beat overlays. */
+    private Color nodeColour(Person u) {
+        if (highlightedPath != null && highlightedPath.contains(u)) return Theme.PATH;
+        if (visualizationStep != null && visualizationStep.contains(u)) return Theme.ACCENT_DEEP;
+        if (showHeatmap) return getHeatmapColor(u.getMetrics().get(heatmapMetric));
+        if (showCommunities && u.getMetrics().getCommunityId() >= 0) {
+            return COMMUNITY_COLORS[u.getMetrics().getCommunityId() % COMMUNITY_COLORS.length];
         }
+        // Otherwise tint by what the person is mostly into, so the plain view still
+        // carries information instead of being a field of identical blue dots.
+        Category dominant = u.getDominantCategory();
+        return dominant == null ? Theme.NODE
+                : Theme.mix(new Color(dominant.getRgb()), Theme.BG, 0.30);
     }
 
     // --- Painting ---
@@ -189,6 +205,9 @@ public class NetworkCanvas extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
 
         // 1. DRAW ALL CONNECTIONS
         g2.setStroke(new BasicStroke(1));
@@ -204,25 +223,25 @@ public class NetworkCanvas extends JPanel {
                         }
                     }
 
-                    if (isBridge) {
-                        g2.setColor(new Color(231, 76, 60)); // Red for bridges
-                        g2.setStroke(new BasicStroke(3));
-                    } else {
-                        g2.setColor(new Color(100, 100, 100)); // Default grey
-                        g2.setStroke(new BasicStroke(1));
-                    }
-                    
-                    g2.drawLine(u.getX(), u.getY(), friend.getX(), friend.getY());
-                    
-                    // Optional: Draw edge weights
                     double weight = service.getEdgeWeight(u, friend);
-                    if (weight != 1.0) {
-                        int mx = (u.getX() + friend.getX()) / 2;
-                        int my = (u.getY() + friend.getY()) / 2;
-                        g2.setColor(new Color(180, 180, 180));
-                        g2.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-                        g2.drawString(String.format("%.1f", weight), mx, my);
+
+                    if (isBridge) {
+                        g2.setColor(Theme.EDGE_FRAGILE);
+                        g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    } else {
+                        // Closer friendships draw brighter and thicker, so the strength
+                        // that already drives warm-intro routing is visible rather than
+                        // hidden behind a number printed on the line.
+                        double strength = Math.max(0.5, Math.min(3.0, weight)) / 3.0;
+                        g2.setColor(Theme.mix(Theme.EDGE, Theme.mix(Theme.EDGE, Theme.TEXT_DIM, 0.5), strength));
+                        g2.setStroke(new BasicStroke((float) (0.9 + strength * 1.6),
+                                BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     }
+
+                    // Weight is no longer printed on the line. A number floating
+                    // mid-edge collided with every other edge crossing it, and the
+                    // stroke now carries the same information continuously.
+                    g2.drawLine(u.getX(), u.getY(), friend.getX(), friend.getY());
                 }
             }
         }
@@ -251,65 +270,74 @@ public class NetworkCanvas extends JPanel {
 
         // 3. NODES
         for (Person u : service.getAllUsers()) {
-            
-            // Determine Node Color
-            if (u.equals(activeSelection)) {
-                g2.setColor(new Color(255, 255, 255)); // White (Active)
-            } else if (waypoints.contains(u)) {
-                g2.setColor(new Color(241, 196, 15)); // Yellow (Waypoint)
-            } else if (highlightedPath != null && highlightedPath.contains(u)) {
-                g2.setColor(new Color(46, 204, 113)); // Green (Path)
-            } else if (visualizationStep != null && visualizationStep.contains(u)) {
-                g2.setColor(new Color(155, 89, 182)); // Purple (Visualization)
-            } else if (showHeatmap) {
-                g2.setColor(getHeatmapColor(u.getMetrics().get(heatmapMetric)));
-            } else if (showCommunities && u.getMetrics().getCommunityId() >= 0) {
-                int cId = u.getMetrics().getCommunityId() % COMMUNITY_COLORS.length;
-                g2.setColor(COMMUNITY_COLORS[cId]);
-            } else {
-                g2.setColor(new Color(52, 152, 219)); // Blue (Normal)
+            int x = u.getX(), y = u.getY();
+            Color fill = nodeColour(u);
+            boolean isSuggested = currentUser != null && suggested.contains(u);
+
+            // Soft halo behind anything the engine surfaced, so the eye finds the
+            // app's own suggestions before it finds anything else on the canvas.
+            if (isSuggested) {
+                g2.setColor(Theme.alpha(Theme.ACCENT, 34));
+                g2.fillOval(x - 30, y - 30, 60, 60);
             }
 
-            g2.fillOval(u.getX() - 20, u.getY() - 20, 40, 40);
+            // Body, with a darker rim so nodes stay legible against a light heatmap.
+            g2.setColor(fill);
+            g2.fillOval(x - NODE_R, y - NODE_R, NODE_R * 2, NODE_R * 2);
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.setColor(Theme.mix(fill, Color.BLACK, 0.35));
+            g2.drawOval(x - NODE_R, y - NODE_R, NODE_R * 2, NODE_R * 2);
 
-            // Dotted Ring for selection
-            if (u.equals(activeSelection)) {
-                Stroke dashed = new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{5}, 0);
-                g2.setStroke(dashed);
-                g2.setColor(Color.WHITE);
-                g2.drawOval(u.getX() - 24, u.getY() - 24, 48, 48);
+            // Rings, outermost first. Each says something different and they can stack:
+            // you can be the current user AND selected AND suggested at once.
+            if (isSuggested) {
+                g2.setStroke(new BasicStroke(2f));
+                g2.setColor(Theme.ACCENT);
+                g2.drawOval(x - NODE_R - 5, y - NODE_R - 5, (NODE_R + 5) * 2, (NODE_R + 5) * 2);
             }
-            
-            // Halo for visualization step
-            if (visualizationStep != null && visualizationStep.contains(u)) {
-                g2.setStroke(new BasicStroke(3));
-                g2.setColor(new Color(155, 89, 182, 128)); // Semi-transparent purple
-                g2.drawOval(u.getX() - 28, u.getY() - 28, 56, 56);
-            }
-
-            // "You" marker — a solid gold ring, so the reference point for every
-            // relative view (similarity heatmap, suggestions) is never ambiguous.
             if (u.equals(currentUser)) {
-                g2.setStroke(new BasicStroke(3));
-                g2.setColor(new Color(241, 196, 15));
-                g2.drawOval(u.getX() - 26, u.getY() - 26, 52, 52);
+                g2.setStroke(new BasicStroke(2.5f));
+                g2.setColor(Theme.YOU);
+                g2.drawOval(x - NODE_R - 8, y - NODE_R - 8, (NODE_R + 8) * 2, (NODE_R + 8) * 2);
+            }
+            if (u.equals(activeSelection)) {
+                g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                        0, new float[]{4, 4}, 0));
+                g2.setColor(Theme.TEXT);
+                g2.drawOval(x - NODE_R - 11, y - NODE_R - 11, (NODE_R + 11) * 2, (NODE_R + 11) * 2);
             }
 
-            // Avatar emoji, drawn inside the node when the profile has one
+            // Avatar emoji sits inside the node; the initial is the fallback so a node
+            // is never a blank disc.
             String emoji = u.getAvatarEmoji();
             if (emoji != null && !emoji.isBlank()) {
-                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
-                java.awt.FontMetrics fm = g2.getFontMetrics();
+                g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 17));
+                FontMetrics fm = g2.getFontMetrics();
                 g2.setColor(Color.WHITE);
-                g2.drawString(emoji,
-                        u.getX() - fm.stringWidth(emoji) / 2,
-                        u.getY() + fm.getAscent() / 2 - 2);
+                g2.drawString(emoji, x - fm.stringWidth(emoji) / 2, y + fm.getAscent() / 2 - 3);
+            } else {
+                g2.setFont(Theme.title(14));
+                FontMetrics fm = g2.getFontMetrics();
+                String initial = u.getName().isEmpty() ? "?" : u.getName().substring(0, 1);
+                g2.setColor(Theme.mix(fill, Color.WHITE, 0.85));
+                g2.drawString(initial, x - fm.stringWidth(initial) / 2, y + fm.getAscent() / 2 - 3);
             }
 
-            // Name Label
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            g2.setColor(Color.WHITE);
-            g2.drawString(u.getName(), u.getX() - 15, u.getY() - 25);
+            // Name, centred under the node rather than guessed with a fixed offset —
+            // the old -15 left every long name visibly off to one side.
+            g2.setFont(Theme.title(11));
+            FontMetrics nameMetrics = g2.getFontMetrics();
+            String label = u.getName();
+            int labelX = x - nameMetrics.stringWidth(label) / 2;
+            int labelY = y + NODE_R + 15;
+
+            // A slab behind the text keeps names readable where edges run underneath.
+            g2.setColor(Theme.alpha(Theme.BG, 190));
+            g2.fillRoundRect(labelX - 4, labelY - nameMetrics.getAscent() - 1,
+                    nameMetrics.stringWidth(label) + 8, nameMetrics.getHeight(), 6, 6);
+            g2.setColor(u.equals(currentUser) ? Theme.YOU
+                    : isSuggested ? Theme.ACCENT : Theme.TEXT);
+            g2.drawString(label, labelX, labelY);
         }
 
         // 4. LEGEND

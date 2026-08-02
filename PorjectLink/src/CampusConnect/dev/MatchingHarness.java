@@ -97,7 +97,7 @@ public class MatchingHarness {
 
     private static void everyone(NetworkService svc, RecommendationService rec) {
         System.out.println("\n" + "=".repeat(78));
-        System.out.println("TOP 3 FOR ALL 40 STUDENTS");
+        System.out.println("TOP 3 FOR EVERY STUDENT");
         System.out.println("=".repeat(78));
 
         for (Person p : svc.getAllUsers()) {
@@ -140,14 +140,21 @@ public class MatchingHarness {
         System.out.println("\n  Most-suggested people (watch for one name dominating):");
         for (int i = 0; i < Math.min(6, ranked.size()); i++) {
             Map.Entry<String, Integer> e = ranked.get(i);
-            System.out.printf("    %-20s in %2d of 40 lists%n", e.getKey(), e.getValue());
+            System.out.printf("    %-20s in %2d of %d lists%n",
+                    e.getKey(), e.getValue(), svc.getAllUsers().size());
         }
 
+        // Thresholds are relative to the campus, not absolute. An earlier version
+        // hardcoded "25+ distinct" and "at most 20 lists", which silently encoded the
+        // seed being 40 people and broke the moment it was not.
+        int population = svc.getAllUsers().size();
         int topCount = ranked.isEmpty() ? 0 : ranked.get(0).getValue();
-        check("no single person owns more than half the lists", topCount <= 20);
+        check("no single person owns more than half the lists", topCount <= population / 2);
 
-        System.out.printf("%n  %d distinct people appear across all lists%n", appearances.size());
-        check("suggestions are spread over many people (25+)", appearances.size() >= 25);
+        System.out.printf("%n  %d of %d people appear across all lists%n",
+                appearances.size(), population);
+        check("suggestions reach most of the campus (60%+)",
+                appearances.size() >= population * 0.6);
 
         popularityAbTest(svc);
     }

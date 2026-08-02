@@ -78,17 +78,17 @@ public class DiscoveryHarness {
         // the circle the user already moves in.
         check("turning serendipity up reduces shared friends", wildMutual <= safeMutual);
 
-        // Asserting the two sets contain *different people* was too strict: with a small
-        // campus the same handful can be the best available at both ends, and the dial
-        // still did its job by reordering them. What must change is the ranking — the
-        // person put first.
-        check("the dial changes who comes first",
-                !safe.get(0).person().getName().equals(wild.get(0).person().getName()));
-
-        // And the person it promotes must be the less socially-connected one, which is
-        // the entire point of turning it up.
-        check("the promoted candidate has fewer shared friends",
-                wild.get(0).mutualFriends().size() <= safe.get(0).mutualFriends().size());
+        // What the dial must actually do is change the *composition* of the feed toward
+        // less-connected people. Asserting on any single position -- "the top pick
+        // changes", "the sets differ entirely" -- turned out to be brittle: whoever is
+        // genuinely the best match can legitimately stay first while everything beneath
+        // them turns over, which is correct behaviour and not something to fail on.
+        Set<String> safeNames = new HashSet<>();
+        for (Suggestion s : safe) safeNames.add(s.person().getName());
+        long newFaces = wild.stream().filter(s -> !safeNames.contains(s.person().getName())).count();
+        System.out.println("  new faces at high serendipity: " + newFaces + " of " + wild.size());
+        check("the dial brings in people the safe setting missed", newFaces > 0);
+        check("and shifts the feed toward the less connected", wildMutual < safeMutual);
 
         // Values outside [0,1] must clamp rather than distort the ranking.
         check("serendipity clamps below 0", !rec.recommend(priya, 3, -5, Set.of()).isEmpty());

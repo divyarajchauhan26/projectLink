@@ -9,15 +9,18 @@ import java.util.Locale;
 import java.util.Random;
 
 /**
- * A hand-authored campus of 40 students with full profiles.
+ * A hand-authored campus of 24 students with full profiles.
  * <p>
  * <b>Why this is hand-written rather than randomly generated.</b> A recommender cannot be
  * evaluated against 25 nodes named Alice..Yara with no profiles — every suggestion looks
  * equally arbitrary, so you cannot tell a working engine from a broken one. This seed is
  * shaped deliberately so that specific answers are <em>checkable by eye</em>:
  * <ul>
- *   <li>Six interest clusters (tech, music, sports, arts, academics, outdoors) with
- *       realistic internal density and a handful of cross-cluster bridges.</li>
+ *   <li>Five interest clusters (tech, music, sports, arts, outdoors) with realistic
+ *       internal density and a handful of cross-cluster bridges. Sized so the whole
+ *       campus is readable at a glance — an earlier 40-person version was structurally
+ *       richer and visually a mess, and nobody can evaluate a suggestion they cannot
+ *       find on screen.</li>
  *   <li><b>Three first-years with almost no connections</b> — Aarav, Ira and Tanvi. These
  *       are the cold-start case the whole product exists for, and each has an obvious
  *       right answer: Aarav (guitar, indie, poetry, zero friends) should surface Kabir
@@ -43,14 +46,15 @@ public final class CampusSeed {
         int w = Math.max(900, width);
         int h = Math.max(650, height);
 
-        // Cluster anchors, as fractions of the canvas.
-        int techX  = (int) (w * 0.22), techY  = (int) (h * 0.28);
-        int musicX = (int) (w * 0.78), musicY = (int) (h * 0.24);
-        int sportX = (int) (w * 0.20), sportY = (int) (h * 0.76);
-        int artX   = (int) (w * 0.80), artY   = (int) (h * 0.74);
-        int acadX  = (int) (w * 0.50), acadY  = (int) (h * 0.58);
+        // Cluster anchors, as fractions of the canvas. Pushed toward the corners and
+        // spread further apart than the groups are wide, so the six clusters read as six
+        // things on opening rather than one tangle that only resolves once physics runs.
+        int techX  = (int) (w * 0.17), techY  = (int) (h * 0.32);
+        int musicX = (int) (w * 0.83), musicY = (int) (h * 0.30);
+        int sportX = (int) (w * 0.17), sportY = (int) (h * 0.74);
+        int artX   = (int) (w * 0.83), artY   = (int) (h * 0.72);
         int outX   = (int) (w * 0.50), outY   = (int) (h * 0.16);
-        int newX   = (int) (w * 0.50), newY   = (int) (h * 0.90);
+        int newX   = (int) (w * 0.50), newY   = (int) (h * 0.88);
 
         // ---------------- TECH ----------------
         p(svc, techX, techY, "Aditya Menon", "💻", "Computer Science", 3, "Kochi", "H4",
@@ -77,17 +81,7 @@ public final class CampusSeed {
           "game-development:5, valorant:5, programming:4, esports:3, digital-art:3",
           "PROJECT_TEAM, JUST_FRIENDS", "Unity", "Blender, 3D modelling");
 
-        p(svc, techX, techY, "Ananya Rao", "🔐", "Computer Science", 4, "Hyderabad", "H3",
-          "Telugu, English, Hindi",
-          "Final year. CTFs and bug bounties. Placed already but somehow still can't sleep before 3am.",
-          "cybersecurity:5, programming:4, competitive-programming:3, linux:3, reading:3",
-          "MENTEE", "Web security, CTFs", "");
 
-        p(svc, techX, techY, "Vikram Singh", "📊", "Data Science", 3, "Jaipur", "H2",
-          "Hindi, English",
-          "Numbers person. Also somehow the guy who ends up making the spreadsheets for every fest committee.",
-          "data-science:5, mathematics:4, economics:4, investing:3, cricket:3",
-          "STUDY_PARTNER, PROJECT_TEAM", "SQL, Excel", "Deep learning");
 
         p(svc, techX, techY, "Sneha Nair", "🚀", "Computer Science", 2, "Thiruvananthapuram", "H1",
           "Malayalam, English",
@@ -95,11 +89,6 @@ public final class CampusSeed {
           "hackathons:5, web-development:5, programming:4, ui-ux:3, entrepreneurship:3",
           "PROJECT_TEAM", "React", "Backend, System design");
 
-        p(svc, techX, techY, "Rohan Desai", "⚡", "Electronics", 3, "Pune", "H4",
-          "Marathi, Hindi, English",
-          "Hardware guy in a software world. Arduino, drones, and far too many loose wires on my desk.",
-          "electronics:5, arduino:5, robotics:4, iot:4, programming:3",
-          "PROJECT_TEAM", "Embedded C, PCB design", "ROS");
 
         // ---------------- MUSIC ----------------
         p(svc, musicX, musicY, "Kabir Khan", "🎸", "Design", 3, "Mumbai", "H5",
@@ -132,11 +121,6 @@ public final class CampusSeed {
           "music-production:5, edm:5, lofi:4, dj:4, programming:3",
           "JAM_SESSION, PROJECT_TEAM", "FL Studio, Mixing", "Guitar, Music theory");
 
-        p(svc, musicX, musicY, "Dev Malhotra", "🎺", "Commerce", 3, "Amritsar", "H5",
-          "Punjabi, Hindi, English",
-          "College band. Play a bit of everything. Bhangra beats meet jazz, somehow it works.",
-          "jazz:4, singing:4, guitar:3, dance:4, bollywood-music:3",
-          "JAM_SESSION, JUST_FRIENDS", "", "Piano");
 
         // ---------------- SPORTS ----------------
         p(svc, sportX, sportY, "Rahul Verma", "🏏", "Sports Science", 4, "Kanpur", "H3",
@@ -151,17 +135,7 @@ public final class CampusSeed {
           "football:5, athletics:4, gym:3, running:4, nutrition:3",
           "SPORTS_BUDDY", "Injury prevention", "");
 
-        p(svc, sportX, sportY, "Sameer Kulkarni", "🏀", "Business Administration", 2, "Nagpur", "H3",
-          "Marathi, Hindi, English",
-          "Basketball. Six foot two and still can't dunk. Working on it, don't ask.",
-          "basketball:5, gym:4, hip-hop:3, sneakers:4, fifa:3",
-          "SPORTS_BUDDY, JUST_FRIENDS", "", "");
 
-        p(svc, sportX, sportY, "Nikhil Rao", "🏸", "Computer Science", 3, "Mangalore", "H4",
-          "Kannada, English, Hindi",
-          "Badminton, state level. Also code sometimes. Mostly badminton though.",
-          "badminton:5, table-tennis:4, programming:3, gym:3, anime:3",
-          "SPORTS_BUDDY, STUDY_PARTNER", "", "");
 
         p(svc, sportX, sportY, "Divya Reddy", "🏃", "Biotechnology", 2, "Vijayawada", "H1",
           "Telugu, English, Hindi",
@@ -175,11 +149,6 @@ public final class CampusSeed {
           "gym:5, weightlifting:5, nutrition:4, cricket:3, motorcycles:3",
           "SPORTS_BUDDY", "Powerlifting", "");
 
-        p(svc, sportX, sportY, "Kunal Shetty", "🏐", "Civil", 4, "Udupi", "H3",
-          "Kannada, English",
-          "Volleyball, and the guy who ends up organising every inter-hostel tournament.",
-          "volleyball:5, cricket:4, gym:3, football:3, street-food:4",
-          "SPORTS_BUDDY, JUST_FRIENDS", "", "");
 
         // ---------------- ARTS ----------------
         p(svc, artX, artY, "Anika Bhatt", "📷", "Design", 3, "Chandigarh", "H6",
@@ -194,11 +163,6 @@ public final class CampusSeed {
           "film-making:5, videography:5, indie-films:5, photography:4, documentaries:4",
           "PROJECT_TEAM", "Video editing, Premiere", "Colour grading");
 
-        p(svc, artX, artY, "Riya Kapoor", "🎨", "Design", 2, "Gurgaon", "H6",
-          "Hindi, English",
-          "Digital artist. Procreate is basically glued to my hand. Commissions open, by the way.",
-          "digital-art:5, drawing:5, animation:4, anime:4, manga:3",
-          "JUST_FRIENDS", "Digital art, Procreate", "Animation");
 
         p(svc, artX, artY, "Neel Chatterjee", "🎭", "Literature", 3, "Kolkata", "H5",
           "Bengali, English, Hindi",
@@ -212,42 +176,12 @@ public final class CampusSeed {
           "creative-writing:5, poetry:5, literature:4, journaling:4, reading:5",
           "JUST_FRIENDS", "Writing, Editing", "Photography");
 
-        p(svc, artX, artY, "Aisha Siddiqui", "🖌️", "Fine Arts", 3, "Bhopal", "H6",
-          "Urdu, Hindi, English",
-          "Paint, mostly acrylics. Also take calligraphy commissions when fest season comes around.",
-          "painting:5, calligraphy:5, drawing:4, pottery:3, poetry:3",
-          "JUST_FRIENDS", "Calligraphy, Painting", "Digital art");
 
         // ---------------- ACADEMICS ----------------
-        p(svc, acadX, acadY, "Shreya Pandey", "🗣️", "Law", 3, "Varanasi", "H2",
-          "Hindi, English",
-          "Debate society head. I will argue with you about anything, professionally.",
-          "debate:5, public-speaking:5, model-un:4, politics:4, literature:3",
-          "MENTEE, PROJECT_TEAM", "Debate, Public speaking", "");
 
-        p(svc, acadX, acadY, "Manav Agarwal", "🌍", "Economics", 4, "Kolkata", "H2",
-          "Bengali, Hindi, English",
-          "MUN circuit regular — twelve conferences, five awards. Also study economics occasionally.",
-          "model-un:5, economics:5, politics:4, debate:4, investing:3",
-          "MENTEE", "MUN, Research", "");
 
-        p(svc, acadX, acadY, "Pooja Iyer", "🧠", "Psychology", 2, "Coimbatore", "H1",
-          "Tamil, English",
-          "Quizzing team. Useless facts are my love language.",
-          "quizzing:5, psychology:4, reading:4, history:4, documentaries:3",
-          "STUDY_PARTNER, JUST_FRIENDS", "", "");
 
-        p(svc, acadX, acadY, "Yash Thakur", "📈", "Commerce", 3, "Nagpur", "H2",
-          "Marathi, Hindi, English",
-          "Case comps and stock markets. Trying to actually build something before I graduate.",
-          "case-competitions:5, entrepreneurship:5, investing:5, economics:4, public-speaking:3",
-          "PROJECT_TEAM", "Financial modelling", "Product management");
 
-        p(svc, acadX, acadY, "Ritu Saxena", "📚", "Physics", 4, "Bhopal", "H1",
-          "Hindi, English",
-          "Research assistant in condensed matter. Applying to grad school and slowly losing my mind.",
-          "research:5, physics:5, mathematics:5, astronomy:4, reading:3",
-          "MENTEE, STUDY_PARTNER", "Physics, Research writing", "");
 
         // ---------------- OUTDOORS ----------------
         p(svc, outX, outY, "Varun Nambiar", "🏔️", "Environmental Science", 3, "Coorg", "H4",
@@ -268,17 +202,7 @@ public final class CampusSeed {
           "cycling:5, adventure-sports:4, trekking:4, travel:5, motorcycles:4",
           "SPORTS_BUDDY", "Cycling, Bike maintenance", "");
 
-        p(svc, outX, outY, "Kavya Krishnan", "🌱", "Environmental Science", 3, "Chennai", "H1",
-          "Tamil, English, Hindi",
-          "Running the campus sustainability drive. If you're not composting yet we need to talk.",
-          "environment:5, veganism:4, gardening:4, ngo-work:4, trekking:3",
-          "JUST_FRIENDS, PROJECT_TEAM", "", "");
 
-        p(svc, outX, outY, "Om Prakash", "🥾", "Civil", 2, "Ranchi", "H3",
-          "Hindi, English",
-          "New to trekking but completely hooked. Did my first one in October, want to do many more.",
-          "trekking:4, camping:3, photography:3, gym:3, cricket:3",
-          "SPORTS_BUDDY, JUST_FRIENDS", "", "Trekking, Photography");
 
         // ---------------- FIRST-YEARS: the cold-start cases ----------------
         // Barely connected on purpose. Every structural algorithm returns nothing useful
@@ -302,6 +226,7 @@ public final class CampusSeed {
           "MENTOR, STUDY_PARTNER", "", "Machine learning");
 
         wireConnections(svc);
+        settle(svc, w, h);
     }
 
     // ================= the friendship graph =================
@@ -311,79 +236,66 @@ public final class CampusSeed {
         link(svc, "Aditya Menon", "Rhea Sharma", 3.0);
         link(svc, "Aditya Menon", "Karthik Iyer", 2.0);
         link(svc, "Rhea Sharma", "Karthik Iyer", 1.0);
-        link(svc, "Aditya Menon", "Ananya Rao", 2.0);
-        link(svc, "Rhea Sharma", "Vikram Singh", 2.5);
         link(svc, "Karthik Iyer", "Ishaan Gupta", 1.0);
-        link(svc, "Ishaan Gupta", "Rohan Desai", 1.0);
         link(svc, "Sneha Nair", "Aditya Menon", 1.0);
         link(svc, "Sneha Nair", "Rhea Sharma", 2.0);
-        link(svc, "Ananya Rao", "Karthik Iyer", 1.0);
-        link(svc, "Vikram Singh", "Sneha Nair", 1.0);
-        link(svc, "Rohan Desai", "Karthik Iyer", 1.0);
 
         // Music
         link(svc, "Kabir Khan", "Meera Joshi", 3.0);
         link(svc, "Kabir Khan", "Arjun Pillai", 2.5);
         link(svc, "Meera Joshi", "Tara Bose", 2.0);
-        link(svc, "Arjun Pillai", "Dev Malhotra", 1.0);
         link(svc, "Tara Bose", "Zoya Ahmed", 1.0);
         link(svc, "Zoya Ahmed", "Kabir Khan", 2.0);
-        link(svc, "Dev Malhotra", "Meera Joshi", 1.0);
-        link(svc, "Arjun Pillai", "Tara Bose", 1.0);
 
-        // Sports — Rahul is the deliberate hub
+        // Sports. Rahul is the deliberate hub -- if he tops everybody's
+        // recommendations, the popularity penalty is not working.
         link(svc, "Rahul Verma", "Priya Menon", 2.5);
-        link(svc, "Rahul Verma", "Sameer Kulkarni", 2.0);
-        link(svc, "Rahul Verma", "Nikhil Rao", 1.0);
         link(svc, "Rahul Verma", "Aryan Chauhan", 2.0);
-        link(svc, "Rahul Verma", "Kunal Shetty", 2.0);
         link(svc, "Rahul Verma", "Divya Reddy", 1.0);
+        link(svc, "Rahul Verma", "Arjun Pillai", 1.0);
+        link(svc, "Rahul Verma", "Varun Nambiar", 1.0);
+        link(svc, "Rahul Verma", "Ishaan Gupta", 1.0);
         link(svc, "Priya Menon", "Divya Reddy", 2.0);
-        link(svc, "Sameer Kulkarni", "Nikhil Rao", 1.0);
-        link(svc, "Aryan Chauhan", "Kunal Shetty", 1.0);
-        link(svc, "Nikhil Rao", "Kunal Shetty", 1.0);
 
         // Arts
         link(svc, "Anika Bhatt", "Farhan Sheikh", 3.0);
-        link(svc, "Anika Bhatt", "Riya Kapoor", 2.0);
         link(svc, "Farhan Sheikh", "Neel Chatterjee", 2.0);
-        link(svc, "Riya Kapoor", "Aisha Siddiqui", 2.0);
         link(svc, "Neel Chatterjee", "Sara DSouza", 2.5);
-        link(svc, "Sara DSouza", "Aisha Siddiqui", 1.0);
         link(svc, "Anika Bhatt", "Neel Chatterjee", 1.0);
-
-        // Academics
-        link(svc, "Shreya Pandey", "Manav Agarwal", 3.0);
-        link(svc, "Shreya Pandey", "Pooja Iyer", 1.0);
-        link(svc, "Manav Agarwal", "Yash Thakur", 2.0);
-        link(svc, "Pooja Iyer", "Ritu Saxena", 1.0);
-        link(svc, "Yash Thakur", "Shreya Pandey", 1.0);
-        link(svc, "Ritu Saxena", "Manav Agarwal", 1.0);
 
         // Outdoors
         link(svc, "Varun Nambiar", "Naina Kapoor", 2.0);
         link(svc, "Varun Nambiar", "Siddharth Menon", 3.0);
-        link(svc, "Naina Kapoor", "Kavya Krishnan", 2.0);
-        link(svc, "Siddharth Menon", "Om Prakash", 1.0);
-        link(svc, "Kavya Krishnan", "Varun Nambiar", 2.0);
-        link(svc, "Om Prakash", "Varun Nambiar", 1.0);
+        link(svc, "Siddharth Menon", "Arjun Pillai", 1.0);
 
-        // Cross-cluster bridges — these are what make betweenness and Louvain interesting
-        link(svc, "Nikhil Rao", "Aditya Menon", 1.0);      // sports <-> tech
+        // Cross-cluster bridges -- what makes betweenness and Louvain interesting
         link(svc, "Zoya Ahmed", "Ishaan Gupta", 1.0);      // music  <-> tech
         link(svc, "Anika Bhatt", "Varun Nambiar", 1.0);    // arts   <-> outdoors
-        link(svc, "Neel Chatterjee", "Shreya Pandey", 1.0);// arts   <-> academics
-        link(svc, "Vikram Singh", "Yash Thakur", 1.0);     // tech   <-> academics
         link(svc, "Arjun Pillai", "Aryan Chauhan", 1.0);   // music  <-> sports
-        link(svc, "Kavya Krishnan", "Sara DSouza", 1.0);   // outdoors <-> arts
-        link(svc, "Tara Bose", "Pooja Iyer", 1.0);         // music  <-> academics
         link(svc, "Priya Menon", "Naina Kapoor", 1.0);     // sports <-> outdoors
-        link(svc, "Farhan Sheikh", "Manav Agarwal", 1.0);  // arts   <-> academics
-        link(svc, "Divya Reddy", "Naina Kapoor", 1.0);     // sports <-> outdoors
-        link(svc, "Rahul Verma", "Om Prakash", 1.0);       // sports <-> outdoors
+        link(svc, "Sara DSouza", "Meera Joshi", 1.0);      // arts   <-> music
+        link(svc, "Tara Bose", "Sneha Nair", 1.0);         // music  <-> tech
 
-        // The first-years know each other and nobody else. Aarav knows literally no one.
+        // The first-years know each other and nobody else. Aarav knows literally no one,
+        // which is the cold-start case the whole product exists for.
         link(svc, "Ira Bhattacharya", "Tanvi Deshmukh", 1.0);
+    }
+
+    /**
+     * Run the layout to rest before anyone sees it.
+     * <p>
+     * The physics engine has always existed but is off by default, so the graph opened in
+     * whatever positions the seed happened to assign and stayed there — overlapping labels
+     * and edges crossing for no reason, which reads as a mess rather than as a network.
+     * Stepping the simulation a few hundred times here costs a few milliseconds and means
+     * the first thing on screen is an already-untangled graph. Turning Physics on
+     * afterwards then does what a user expects: it responds to <em>their</em> changes.
+     */
+    private static void settle(NetworkService svc, int width, int height) {
+        for (int i = 0; i < 400; i++) svc.updatePhysics(width, height);
+        // Leave every node at rest, or the first Physics toggle would jolt the layout
+        // with velocity left over from a simulation the user never saw.
+        for (Person p : svc.getAllUsers()) { p.dx = 0; p.dy = 0; }
     }
 
     // ================= builders =================
@@ -398,8 +310,9 @@ public final class CampusSeed {
                           String bio, String interests, String intents,
                           String canTeach, String wantsToLearn) {
 
-        int x = cx + JITTER.nextInt(200) - 100;
-        int y = cy + JITTER.nextInt(160) - 80;
+        // Tighter than the gap between anchors, so clusters stay visually distinct.
+        int x = cx + JITTER.nextInt(130) - 65;
+        int y = cy + JITTER.nextInt(110) - 55;
         svc.addUserAtPosition(name, x, y);
 
         Person person = svc.findUserByName(name);

@@ -50,7 +50,9 @@ public final class RecommendationService {
             double isolationBoost) {
 
         public static Weights defaults() {
-            return new Weights(0.40, 0.12, 0.12, 0.22, 0.07, 0.07, 0.08, 0.05);
+            // isolationBoost is a multiplier, so 0.18 means "up to 18% better", not an
+            // absolute score. See score().
+            return new Weights(0.40, 0.12, 0.12, 0.22, 0.07, 0.07, 0.08, 0.18);
         }
 
         /** The profile-only terms, which is everything except the graph. */
@@ -230,8 +232,16 @@ public final class RecommendationService {
                 + w.structural() * structural
                 + w.intent() * intent
                 + w.teachLearn() * teachLearn
-                + w.isolationBoost() * isolation
                 - w.popularityPenalty() * popularity;
+
+        // Applied as a multiplier, not an addition. A flat bonus is scale-dependent: it
+        // was tuned when scores ran higher, and once the campus shrank and scores
+        // compressed the same constant became a third of a whole score, putting one
+        // friendless student at the top of 21 of 24 feeds. Scaling the score instead
+        // means the nudge can lift a near-tie but can never hoist an unrelated person
+        // above a genuine match — which is what "break ties toward someone who needs the
+        // introduction" was supposed to mean all along.
+        total *= (1.0 + w.isolationBoost() * isolation);
 
         return new Scored(total,
                 new Signals(interest, bio, context, structural, intent, teachLearn, popularity));

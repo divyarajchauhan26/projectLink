@@ -29,11 +29,11 @@ public class ProfileCard extends JPanel {
     public ProfileCard(NetworkService service) {
         this.service = service;
         setLayout(new BorderLayout());
-        setBackground(new Color(43, 43, 43));
+        setBackground(Theme.PANEL);
 
         pane.setContentType("text/html");
         pane.setEditable(false);
-        pane.setBackground(new Color(43, 43, 43));
+        pane.setBackground(Theme.PANEL);
         pane.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
 
         JScrollPane scroll = new JScrollPane(pane);
@@ -64,7 +64,7 @@ public class ProfileCard extends JPanel {
         html.append("<div style='font-size:26pt'>")
             .append(escape(person.getAvatarEmoji().isBlank() ? "🙂" : person.getAvatarEmoji()))
             .append("</div>");
-        html.append("<div style='font-size:16pt;color:#ffffff'><b>")
+        html.append("<div style='font-size:16pt;color:" + hex(Theme.TEXT) + "'><b>")
             .append(escape(person.getName())).append("</b></div>");
 
         String subtitle = subtitle(person);
@@ -74,13 +74,14 @@ public class ProfileCard extends JPanel {
 
         // --- relation to the current user ---
         if (relation != null && !relation.isBlank()) {
-            html.append("<div style='margin-top:10px;padding:8px;background:#2f3b2f;color:#bfe3c0'>")
+            html.append("<div style='margin-top:10px;padding:8px;background:"
+                    + hex(Theme.ELEVATED) + ";color:" + hex(Theme.ACCENT) + "'>")
                 .append(escape(relation)).append("</div>");
         }
 
         // --- bio ---
         if (!person.getBio().isBlank()) {
-            html.append("<div style='margin-top:12px;color:#d8d8d8'><i>“")
+            html.append("<div style='margin-top:12px;color:" + hex(Theme.TEXT_DIM) + "'><i>“")
                 .append(escape(person.getBio())).append("”</i></div>");
         }
 
@@ -168,13 +169,18 @@ public class ProfileCard extends JPanel {
 
     private static String wrap(String bodyHtml) {
         return "<html><head><style>"
-                + "body { font-family: 'Segoe UI', sans-serif; font-size: 10pt;"
-                + "       background: #2b2b2b; color: #dcdcdc; margin: 0; }"
-                + ".muted { color: #8f8f8f; font-size: 9pt; }"
-                + ".body { color: #d0d0d0; }"
-                + ".head { color: #9fb8d8; font-size: 9pt; margin-top: 14px;"
-                + "        border-bottom: 1px solid #454545; }"
+                + "body { font-family: '" + Theme.FAMILY + "', sans-serif; font-size: 10pt;"
+                + "       background: " + hex(Theme.PANEL) + "; color: " + hex(Theme.TEXT) + "; margin: 0; }"
+                + ".muted { color: " + hex(Theme.TEXT_FAINT) + "; font-size: 9pt; }"
+                + ".body { color: " + hex(Theme.TEXT_DIM) + "; }"
+                + ".head { color: " + hex(Theme.ACCENT) + "; font-size: 9pt; margin-top: 14px;"
+                + "        border-bottom: 1px solid " + hex(Theme.BORDER) + "; }"
                 + "</style></head><body>" + bodyHtml + "</body></html>";
+    }
+
+    /** Swing's HTML renderer needs colours as strings, so Theme values are converted here. */
+    private static String hex(java.awt.Color c) {
+        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
     }
 
     private static String section(String title) {
@@ -187,9 +193,8 @@ public class ProfileCard extends JPanel {
      * non-breaking spaces rather than real padding.
      */
     private static String chip(String text, Color color) {
-        String hex = String.format("#%02x%02x%02x",
-                color.getRed(), color.getGreen(), color.getBlue());
-        return "<span style='background:" + hex + ";color:#ffffff'>&nbsp;"
+        String swatch = hex(color);
+        return "<span style='background:" + swatch + ";color:#ffffff'>&nbsp;"
                 + escape(text) + "&nbsp;</span>&nbsp; ";
     }
 

@@ -128,7 +128,7 @@ public class InsightHarness {
         List<InsightService.Circle> circles = insights.circles();
 
         for (String name : new String[]{
-                "Rahul Verma", "Aarav Jain", "Varun Nambiar", "Kabir Khan", "Ritu Saxena"}) {
+                "Rahul Verma", "Aarav Jain", "Varun Nambiar", "Kabir Khan", "Sara DSouza"}) {
             Person p = svc.findUserByName(name);
             String archetype = insights.archetype(p);
             int one = insights.reachWithin(p, 1);

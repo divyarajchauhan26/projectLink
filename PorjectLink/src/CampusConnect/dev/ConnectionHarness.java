@@ -153,19 +153,19 @@ public class ConnectionHarness {
 
         Person aarav = svc.findUserByName("Aarav Jain");
         Person kabir = svc.findUserByName("Kabir Khan");
-        Person ritu = svc.findUserByName("Ritu Saxena");
+        Person distantPerson = svc.findUserByName("Sara DSouza");
 
         String shared = conn.icebreaker(aarav, kabir, sim);
-        String distant = conn.icebreaker(aarav, ritu, sim);
+        String distant = conn.icebreaker(aarav, distantPerson, sim);
         System.out.println("  Aarav -> Kabir:  " + shared);
-        System.out.println("  Aarav -> Ritu:   " + distant);
+        System.out.println("  Aarav -> Sara:   " + distant);
 
         check("an opener is produced for a close match", !shared.isBlank());
         check("it names the person", shared.contains("Kabir"));
         check("it cites something they share", shared.toLowerCase().contains("guitar")
                 || shared.toLowerCase().contains("indie") || shared.toLowerCase().contains("poetry"));
         check("an opener still exists with little in common", !distant.isBlank());
-        check("the fallback still names the person", distant.contains("Ritu"));
+        check("the fallback still names the person", distant.contains("Sara"));
     }
 
     // ---------- the pro-social nudge ----------
@@ -188,7 +188,8 @@ public class ConnectionHarness {
         // The point of the term: the network should work to pull in the people it is
         // failing, not just serve whoever is already well connected.
         check("the nudge surfaces isolated students more often", withNudge >= without);
-        check("it does not take over the feed", withNudge < 40 * 3);
+        check("it does not take over the feed",
+                withNudge < svc.getAllUsers().size() * 5 * 0.6);
     }
 
     private static int countIsolatedSuggestions(NetworkService svc, RecommendationService rec) {

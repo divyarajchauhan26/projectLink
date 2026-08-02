@@ -30,18 +30,18 @@ public class StatsPanel extends JPanel {
         this.service = service;
         setLayout(new BorderLayout());
         setPreferredSize(new Dimension(220, 0));
-        setBackground(new Color(35, 35, 35));
+        setBackground(Theme.PANEL);
         setBorder(new EmptyBorder(10, 10, 10, 10));
 
         JLabel titleLbl = new JLabel("Network Stats");
-        titleLbl.setForeground(Color.WHITE);
-        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        titleLbl.setForeground(Theme.TEXT);
+        titleLbl.setFont(Theme.title(14));
         titleLbl.setBorder(new EmptyBorder(0, 0, 15, 0));
         add(titleLbl, BorderLayout.NORTH);
 
         JPanel statsContainer = new JPanel();
         statsContainer.setLayout(new BoxLayout(statsContainer, BoxLayout.Y_AXIS));
-        statsContainer.setBackground(new Color(35, 35, 35));
+        statsContainer.setBackground(Theme.PANEL);
 
         lblNodes = createStatLabel("Nodes: 0");
         lblEdges = createStatLabel("Edges: 0");
@@ -64,16 +64,16 @@ public class StatsPanel extends JPanel {
         statsContainer.add(Box.createVerticalStrut(20));
 
         JLabel lblTop = new JLabel("Top Influencers (PageRank)");
-        lblTop.setForeground(new Color(180, 180, 180));
-        lblTop.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTop.setForeground(Theme.TEXT_FAINT);
+        lblTop.setFont(Theme.title(11));
         statsContainer.add(lblTop);
         statsContainer.add(Box.createVerticalStrut(5));
 
         topUsersModel = new DefaultListModel<>();
         topUsersList = new JList<>(topUsersModel);
-        topUsersList.setBackground(new Color(45, 45, 45));
-        topUsersList.setForeground(new Color(220, 220, 220));
-        topUsersList.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        topUsersList.setBackground(Theme.ELEVATED);
+        topUsersList.setForeground(Theme.TEXT);
+        topUsersList.setFont(Theme.body(11));
         topUsersList.setBorder(new EmptyBorder(5, 5, 5, 5));
         
         JScrollPane scrollPane = new JScrollPane(topUsersList);
@@ -91,8 +91,8 @@ public class StatsPanel extends JPanel {
 
     private JLabel createStatLabel(String text) {
         JLabel lbl = new JLabel(text);
-        lbl.setForeground(new Color(200, 200, 200));
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lbl.setForeground(Theme.TEXT_DIM);
+        lbl.setFont(Theme.body(12));
         return lbl;
     }
 
