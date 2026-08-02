@@ -1,7 +1,26 @@
 # projectLink
 This project models a college social network using graph data structures. Users are represented as nodes, friendships as edges, and BFS/DFS are used for shortest and exhaustive path discovery.
 
-## Setup & Running
+## Running it
+
+The quickest way — builds if needed, then launches:
+
+```powershell
+.un.ps1
+```
+
+Other modes:
+
+```powershell
+.un.ps1 -Test     # run the nine verification harnesses (234 checks)
+.un.ps1 -Clean    # force a full rebuild first
+```
+
+In VS Code, F5 also works once the Java extension has picked up the `lib/` jars.
+
+---
+
+## Setup & Running (manual)
 
 ### Compile (PowerShell):
 ```powershell
