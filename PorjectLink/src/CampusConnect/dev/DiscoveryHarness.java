@@ -78,10 +78,17 @@ public class DiscoveryHarness {
         // the circle the user already moves in.
         check("turning serendipity up reduces shared friends", wildMutual <= safeMutual);
 
-        Set<String> safeNames = new HashSet<>();
-        for (Suggestion s : safe) safeNames.add(s.person().getName());
-        boolean changed = wild.stream().anyMatch(s -> !safeNames.contains(s.person().getName()));
-        check("the two settings surface different people", changed);
+        // Asserting the two sets contain *different people* was too strict: with a small
+        // campus the same handful can be the best available at both ends, and the dial
+        // still did its job by reordering them. What must change is the ranking — the
+        // person put first.
+        check("the dial changes who comes first",
+                !safe.get(0).person().getName().equals(wild.get(0).person().getName()));
+
+        // And the person it promotes must be the less socially-connected one, which is
+        // the entire point of turning it up.
+        check("the promoted candidate has fewer shared friends",
+                wild.get(0).mutualFriends().size() <= safe.get(0).mutualFriends().size());
 
         // Values outside [0,1] must clamp rather than distort the ranking.
         check("serendipity clamps below 0", !rec.recommend(priya, 3, -5, Set.of()).isEmpty());

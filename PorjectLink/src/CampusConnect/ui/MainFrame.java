@@ -9,6 +9,7 @@ import CampusConnect.persist.EventLog;
 import CampusConnect.persist.GraphIO;
 import CampusConnect.domain.InterestTag;
 import CampusConnect.domain.Group;
+import CampusConnect.service.ConnectionService;
 import CampusConnect.service.GroupService;
 import CampusConnect.service.InsightService;
 import CampusConnect.service.NetworkService;
@@ -52,6 +53,7 @@ public class MainFrame extends JFrame {
     private RecommendationService recommender;
     private InsightService insightService;
     private GroupService groupService;
+    private ConnectionService connections;
 
     // MODES for clicking on canvas
     private enum Mode { CONNECT, DISCONNECT, PATH, DELETE, VIEW, SET_WEIGHT }
@@ -67,6 +69,7 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         this.service = new NetworkService();
         this.canvas = new NetworkCanvas(service);
+        this.connections = new ConnectionService(service);
 
         setTitle("Campus Connect - Social Graph Analytics");
         setSize(1300, 850);
@@ -93,7 +96,7 @@ public class MainFrame extends JFrame {
         JToggleButton btnConnect = createToggle(group, "Connect (Add Link)", Mode.CONNECT);
         JToggleButton btnDisconnect = createToggle(group, "Disconnect", Mode.DISCONNECT);
         JToggleButton btnWeight = createToggle(group, "Set Weight", Mode.SET_WEIGHT);
-        JToggleButton btnPath = createToggle(group, "Shortest Path", Mode.PATH);
+        JToggleButton btnPath = createToggle(group, "Warm Intro", Mode.PATH);
         JToggleButton btnDelete = createToggle(group, "Delete", Mode.DELETE);
 
         JToggleButton btnPhysics = new JToggleButton("Physics");
@@ -366,6 +369,10 @@ public class MainFrame extends JFrame {
         menuMe.add(itemEdit);
         menuMe.addSeparator();
         menuMe.add(itemMatches);
+        menuMe.addSeparator();
+        JMenuItem itemRequests = new JMenuItem("Connection requests");
+        itemRequests.addActionListener(e -> showRequests());
+        menuMe.add(itemRequests);
 
         menuBar.add(menuFile);
         menuBar.add(menuMe);
@@ -500,37 +507,45 @@ public class MainFrame extends JFrame {
                 }
                 break;
 
-            case PATH: // Dijkstra
+            case PATH: // warmest chain of introductions
                 if (selection == null) {
                     selection = clicked;
                     canvas.setActiveSelection(selection);
-                    statusLabel.setText("Start: " + clicked.getName() + ". Click End.");
-                    pathDisplay.setText("Select destination...");
+                    statusLabel.setText("From " + clicked.getName() + " — now click who you want to meet.");
+                    pathDisplay.setText("Click the person you want an introduction to...");
+                    showText("Warm intro");
                 } else {
-                    DijkstraAlgorithm.PathResult res = DijkstraAlgorithm.findShortestPath(
-                            selection, clicked, service.getAdjacencyList(), service.getEdgeWeights());
-                    
-                    canvas.setHighlightedPath(res.path, null);
-                    showText("Shortest Path");
-                    statusLabel.setText("Dijkstra Path Found: " + (res.path.size()-1) + " hops, Cost: " + res.totalCost);
-                    
-                    if (res.path.isEmpty() && !selection.equals(clicked)) {
-                        pathDisplay.setText("No path found.");
+                    List<Person> chain = insights().warmestIntroduction(selection, clicked);
+                    canvas.setHighlightedPath(chain, null);
+                    showText("Warm intro");
+
+                    StringBuilder sb = new StringBuilder("=== Warm introduction ===\n\n");
+                    if (chain.isEmpty()) {
+                        sb.append("No route. ").append(selection.getName())
+                          .append(" has no path to ").append(clicked.getName()).append(".\n\n")
+                          .append("Try the discovery feed instead — it works on\n")
+                          .append("profiles rather than who you already know.\n");
+                        statusLabel.setText("No route between them.");
                     } else {
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("=== Dijkstra Shortest Path ===\n\n");
-                        for (int i = 0; i < res.path.size(); i++) {
-                            sb.append(i + 1).append(". ").append(res.path.get(i).getName()).append("\n");
-                            if (i < res.path.size() - 1) {
-                                double w = service.getEdgeWeight(res.path.get(i), res.path.get(i+1));
-                                sb.append("   --(").append(w).append(")-->\n");
+                        sb.append(insights().describeIntroduction(chain)).append("\n\n");
+                        sb.append("The chain\n");
+                        for (int i = 0; i < chain.size(); i++) {
+                            sb.append("  ").append(i + 1).append(". ")
+                              .append(chain.get(i).getName()).append('\n');
+                            if (i < chain.size() - 1) {
+                                sb.append("       closeness ")
+                                  .append(String.format("%.1f",
+                                          service.getEdgeWeight(chain.get(i), chain.get(i + 1))))
+                                  .append('\n');
                             }
                         }
-                        sb.append("\nTotal Cost: ").append(res.totalCost);
-                        pathDisplay.setText(sb.toString());
+                        sb.append("\nThis is the warmest route, not the shortest —\n")
+                          .append("a longer chain through close friends beats a\n")
+                          .append("short one through people who barely talk.\n");
+                        statusLabel.setText((chain.size() - 1) + " steps to reach " + clicked.getName());
                     }
-                    
-                    
+                    pathDisplay.setText(sb.toString());
+                    pathDisplay.setCaretPosition(0);
                     resetSelection();
                 }
                 break;
@@ -954,6 +969,71 @@ public class MainFrame extends JFrame {
         pathDisplay.setText(sb.toString());
         pathDisplay.setCaretPosition(0);
         showText("Groups");
+    }
+
+    // ================= connection requests =================
+
+    private void showRequests() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this, "Sign in first — Me ▸ Create My Profile.");
+            return;
+        }
+
+        List<ConnectionService.Request> incoming = connections.incoming(me);
+        List<ConnectionService.Request> outgoing = connections.outgoing(me);
+
+        StringBuilder sb = new StringBuilder("=== Connection requests ===\n\n");
+
+        sb.append("Waiting on you (").append(incoming.size()).append(")\n");
+        if (incoming.isEmpty()) sb.append("  nothing right now\n");
+        for (ConnectionService.Request r : incoming) {
+            sb.append("  ").append(r.from().getName()).append('\n');
+            if (!r.message().isBlank()) sb.append("    \"").append(r.message()).append("\"\n");
+        }
+
+        sb.append("\nSent by you (").append(outgoing.size()).append(")\n");
+        if (outgoing.isEmpty()) sb.append("  nothing pending\n");
+        for (ConnectionService.Request r : outgoing) {
+            sb.append("  ").append(r.to().getName()).append(" — waiting\n");
+        }
+
+        double share = connections.suggestedShare();
+        if (share >= 0) {
+            sb.append(String.format("%n%.0f%% of your connections came from a suggestion.%n",
+                    share * 100));
+        }
+
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Requests");
+
+        if (!incoming.isEmpty()) answerNext(me, incoming.get(0));
+    }
+
+    private void answerNext(Person me, ConnectionService.Request request) {
+        String icebreaker = connections.icebreaker(
+                me, request.from(), recommender().similarityEngine());
+
+        int choice = JOptionPane.showConfirmDialog(this,
+                request.from().getName() + " wants to connect.\n\n"
+                        + (request.message().isBlank() ? "" : "\"" + request.message() + "\"\n\n")
+                        + "Accept?\n\nIf you do, try opening with:\n\"" + icebreaker + "\"",
+                "Connection request", JOptionPane.YES_NO_CANCEL_OPTION);
+
+        try {
+            if (choice == JOptionPane.YES_OPTION) {
+                connections.accept(request, ConnectionService.Kind.FRIEND,
+                        ConnectionService.Origin.SUGGESTED);
+                onGraphChanged("Connected with " + request.from().getName() + ".");
+                showRequests();
+            } else if (choice == JOptionPane.NO_OPTION) {
+                connections.decline(request);
+                showRequests();
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage());
+        }
     }
 
     /** Switches the side panel back to algorithm output. */

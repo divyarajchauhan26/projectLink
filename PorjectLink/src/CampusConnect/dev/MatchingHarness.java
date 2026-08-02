@@ -166,7 +166,7 @@ public class MatchingHarness {
         RecommendationService.Weights on = RecommendationService.Weights.defaults();
         RecommendationService.Weights off = new RecommendationService.Weights(
                 on.interest(), on.bio(), on.context(), on.structural(),
-                on.intent(), on.teachLearn(), 0.0);
+                on.intent(), on.teachLearn(), 0.0, on.isolationBoost());
 
         double withPenalty = meanDegreeOfSuggested(svc, new RecommendationService(svc, on));
         double withoutPenalty = meanDegreeOfSuggested(svc, new RecommendationService(svc, off));

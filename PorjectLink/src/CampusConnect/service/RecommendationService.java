@@ -46,10 +46,11 @@ public final class RecommendationService {
             double structural,
             double intent,
             double teachLearn,
-            double popularityPenalty) {
+            double popularityPenalty,
+            double isolationBoost) {
 
         public static Weights defaults() {
-            return new Weights(0.40, 0.12, 0.12, 0.22, 0.07, 0.07, 0.08);
+            return new Weights(0.40, 0.12, 0.12, 0.22, 0.07, 0.07, 0.08, 0.05);
         }
 
         /** The profile-only terms, which is everything except the graph. */
@@ -99,6 +100,23 @@ public final class RecommendationService {
         }
         this.maxDegree = max;
         this.averageDegree = service.getAverageDegree();
+    }
+
+    /**
+     * A nudge toward students the network is failing.
+     * <p>
+     * Every other term here asks "what does this user want". This one asks the opposite:
+     * who is nobody finding. A recommender that only optimises for the person reading it
+     * will quietly leave the isolated exactly where they are, because having no
+     * connections is precisely what makes them score badly on the structural term. The
+     * weight is small on purpose — enough to break ties toward someone who needs the
+     * introduction, not enough to recommend a bad match out of pity.
+     */
+    private double isolationScore(Person candidate) {
+        int degree = service.getConnections(candidate).size();
+        if (degree == 0) return 1.0;
+        if (degree < COLD_START_DEGREE) return 0.5;
+        return 0.0;
     }
 
     /**
@@ -204,6 +222,7 @@ public final class RecommendationService {
         double structural = adamicAdar / (adamicAdar + 1.5);
 
         double popularity = popularityPenalty(candidate);
+        double isolation = isolationScore(candidate);
 
         double total = w.interest() * interest
                 + w.bio() * bio
@@ -211,6 +230,7 @@ public final class RecommendationService {
                 + w.structural() * structural
                 + w.intent() * intent
                 + w.teachLearn() * teachLearn
+                + w.isolationBoost() * isolation
                 - w.popularityPenalty() * popularity;
 
         return new Scored(total,
@@ -271,7 +291,8 @@ public final class RecommendationService {
                 0.0,
                 w.intent() * boost,
                 w.teachLearn() * boost,
-                w.popularityPenalty());
+                w.popularityPenalty(),
+                w.isolationBoost());
     }
 
     // ================= diversity =================

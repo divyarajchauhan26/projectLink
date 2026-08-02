@@ -222,6 +222,71 @@ public final class InsightService {
         return "Regular";
     }
 
+    /**
+     * The warmest chain of introductions from one person to another.
+     * <p>
+     * Not the <em>shortest</em> path — the strongest. A four-step chain through close
+     * friends is a far better route to an introduction than a two-step chain through
+     * people who barely know each other, and asking a good friend for a favour is easy in
+     * a way that asking an acquaintance is not.
+     * <p>
+     * This is what finally makes Dijkstra mean something here. Edge weight has always been
+     * friendship strength, where higher is closer, and shortest-path wants a cost, where
+     * lower is better — so traversing an edge costs {@code 1/strength}. Running Dijkstra
+     * on the raw weights, as the old menu item did, actively preferred the <em>weakest</em>
+     * links in the graph.
+     *
+     * @return the chain including both ends, or an empty list if there is no route
+     */
+    public List<Person> warmestIntroduction(Person from, Person to) {
+        if (from == null || to == null || from == to) return List.of();
+
+        Map<Person, Double> cost = new HashMap<>();
+        Map<Person, Person> previous = new HashMap<>();
+        Set<Person> settled = new HashSet<>();
+
+        PriorityQueue<Person> queue =
+                new PriorityQueue<>(Comparator.comparingDouble(p -> cost.getOrDefault(p, Double.MAX_VALUE)));
+        cost.put(from, 0.0);
+        queue.add(from);
+
+        while (!queue.isEmpty()) {
+            Person current = queue.poll();
+            if (!settled.add(current)) continue;
+            if (current == to) break;
+
+            for (Person neighbour : service.getConnections(current)) {
+                if (settled.contains(neighbour)) continue;
+                double strength = Math.max(0.1, service.getEdgeWeight(current, neighbour));
+                double next = cost.getOrDefault(current, Double.MAX_VALUE) + (1.0 / strength);
+                if (next < cost.getOrDefault(neighbour, Double.MAX_VALUE)) {
+                    cost.put(neighbour, next);
+                    previous.put(neighbour, current);
+                    queue.add(neighbour);
+                }
+            }
+        }
+
+        if (!previous.containsKey(to)) return List.of();
+
+        LinkedList<Person> path = new LinkedList<>();
+        for (Person at = to; at != null; at = previous.get(at)) path.addFirst(at);
+        return path;
+    }
+
+    /** "Ask Rahul, who is close with Aditi, who knows Priya." */
+    public String describeIntroduction(List<Person> path) {
+        if (path.size() < 2) return "No route — you have no connection to them yet.";
+        if (path.size() == 2) return "You already know " + path.get(1).getName() + " directly.";
+
+        StringBuilder sb = new StringBuilder("Ask ").append(path.get(1).getName());
+        for (int i = 2; i < path.size() - 1; i++) {
+            sb.append(", who knows ").append(path.get(i).getName());
+        }
+        sb.append(", to introduce you to ").append(path.get(path.size() - 1).getName()).append('.');
+        return sb.toString();
+    }
+
     /** "You are 2 handshakes from 34 people." */
     public int reachWithin(Person person, int hops) {
         Set<Person> seen = new HashSet<>();
