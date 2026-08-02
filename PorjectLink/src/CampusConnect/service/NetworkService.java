@@ -20,6 +20,10 @@ public class NetworkService {
     private static final double SPRING_LENGTH = 150;
     private static final double SPRING_FORCE = 0.05;
     private static final double DAMPING = 0.85;
+    /** Ceiling on how far a node may travel in one tick, in pixels. */
+    private static final double MAX_SPEED = 30.0;
+    /** Fraction of speed kept when bouncing off a canvas edge. */
+    private static final double WALL_RESTITUTION = 0.5;
 
     // Used only to break the tie when two nodes occupy the exact same point.
     private final Random jitter = new Random();
@@ -306,13 +310,27 @@ public class NetworkService {
         // 3. Update Position
         for (Person u : users) {
             u.dx *= DAMPING; u.dy *= DAMPING;
+
+            // Cap the per-tick step. Repulsion grows as 1/dist^2, so a pair that starts
+            // close enough produces an enormous force, which throws a node hundreds of
+            // pixels, which lands it on top of another node, which repels harder still.
+            // Without this ceiling the whole simulation diverges within a few frames —
+            // it only looked stable in V1 because 25 scattered nodes never got close
+            // enough to trigger it.
+            double speed = Math.sqrt(u.dx * u.dx + u.dy * u.dy);
+            if (speed > MAX_SPEED) {
+                double scale = MAX_SPEED / speed;
+                u.dx *= scale; u.dy *= scale;
+            }
+
             u.x += u.dx; u.y += u.dy;
 
-            // Boundaries
-            if (u.x < 20) { u.x = 20; u.dx *= -1; }
-            if (u.y < 20) { u.y = 20; u.dy *= -1; }
-            if (u.x > width-20) { u.x = width-20; u.dx *= -1; }
-            if (u.y > height-20) { u.y = height-20; u.dy *= -1; }
+            // Boundaries. Reflect with loss — a perfectly elastic bounce (dx *= -1)
+            // returns all the energy and lets nodes rattle along the walls forever.
+            if (u.x < 20)          { u.x = 20;          u.dx *= -WALL_RESTITUTION; }
+            if (u.y < 20)          { u.y = 20;          u.dy *= -WALL_RESTITUTION; }
+            if (u.x > width - 20)  { u.x = width - 20;  u.dx *= -WALL_RESTITUTION; }
+            if (u.y > height - 20) { u.y = height - 20; u.dy *= -WALL_RESTITUTION; }
         }
     }
 
