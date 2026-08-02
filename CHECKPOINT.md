@@ -1,8 +1,9 @@
 # Campus Connect V2 — Checkpoint
 
 **Last updated:** 2 August 2026
-**Branch:** `v2/foundation` (6 commits ahead of `main`, working tree clean)
-**Status:** Part A (Foundation) complete — M0 through M3. **Next up: M4, the matching engine.**
+**Branch:** `v2/foundation` (7 commits ahead of `main`, working tree clean)
+**Status:** Part A complete (M0–M3) **and M4, the matching engine, is done and verified.**
+**Next up: M5 — session, onboarding and profile UI.**
 
 ---
 
@@ -73,13 +74,17 @@ In VS Code, F5 works — `.vscode/launch.json` is already configured and the
 ### The three harnesses — run these after any change
 
 ```bash
-java -cp out CampusConnect.dev.InterestCatalogHarness              # 36 checks
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.SeedHarness   # 32 checks
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.PhysicsHarness #  8 checks
+java -cp out CampusConnect.dev.InterestCatalogHarness                # 36 checks
+java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.SeedHarness     # 32 checks
+java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.PhysicsHarness  #  8 checks
+java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.MatchingHarness # 11 checks
 ```
 
-**All 76 should pass.** These are the regression net — there is no JUnit in this project,
-and these have already caught three real bugs that reading the code did not.
+**All 87 should pass.** These are the regression net — there is no JUnit in this project,
+and they have already caught four real bugs that reading the code did not.
+
+`MatchingHarness` also prints top-3 for all 40 students. Read that output whenever you
+touch the weights — it is the fastest way to tell whether a change helped.
 
 ---
 
@@ -181,7 +186,61 @@ field, so the heatmap showed whichever ran last while still being labelled PageR
 
 ---
 
-## 9. Pick up here → M4, the matching engine
+## 9. M4 is done — what it produces
+
+`RecommendationService` is live and verified headlessly. Aarav, with **zero** connections:
+
+```
+1. Kabir Khan     0.329   you're both into indie and guitar, and you're both looking for a jam session
+2. Meera Joshi    0.203   you're both into indie and poetry, and you both speak Hindi
+3. Zoya Ahmed     0.170   you're both into lo-fi and programming, and you're both looking for a jam session
+```
+
+Four of his top five are musicians, reached with no graph signal at all. Ritu (offering to
+mentor) is shown Tanvi (seeking one), phrased correctly from each side.
+
+**Two bugs the harness caught that the checks initially missed:**
+
+1. **The popularity penalty overcorrected.** `degree/maxDegree` charged every ordinary
+   person a fee for having friends and hit the hub so hard he vanished from all 40 lists —
+   the original bias inverted, with isolated students dominating instead (Aarav went to 19
+   of 40). Now only *above-average* degree is penalised.
+2. **The A/B test that replaced a vacuous check.** "The hub appears in few lists" passed
+   for entirely the wrong reason — Rahul is already friends with all seven sports people,
+   so he is filtered as an existing friend regardless of any penalty. Replaced with a real
+   A/B: mean degree of suggested people, penalty off vs on (3.085 → 2.810).
+
+**Tuning:** weights live in `RecommendationService.Weights.defaults()`. Change them, rerun
+`MatchingHarness`, read the output. Current values:
+
+```
+interest 0.40 | bio 0.12 | context 0.12 | structural 0.22
+intent 0.07 | teachLearn 0.07 | popularityPenalty 0.08
+```
+
+---
+
+## 9b. Pick up here → M5, session and onboarding
+
+The engine works but nothing in the UI uses it yet. M5 makes it reachable:
+
+- `app/AppSession.java` — the concept of **you**. The app currently has no current user,
+  which a social app fundamentally requires.
+- `ui/OnboardingWizard.java` — 4 steps: *Basics → Interests → About You → Looking For*.
+  Under 90 seconds, everything skippable, autocomplete everywhere. The moment they hit
+  Finish, **show them 5 people they should meet** — never drop a new user on an empty canvas.
+- `ui/InterestChipPicker.java` — autocomplete + chips, wired to `InterestCatalog.search()`.
+- `ui/ProfileCard.java` — replaces the raw `JTextArea` dump with a real card.
+
+Then **M6 is nearly free** and is the one you were most excited about: `NodeMetrics` already
+has a `SIMILARITY_TO_ME` slot and `NetworkCanvas` already has `setHeatmapMetric()`. Wiring
+the recommender's per-person score into that field colours the entire campus by how well
+each person matches you.
+
+### Reference — the old M4 spec, now implemented
+
+<details>
+<summary>What was planned, for comparison against what shipped</summary>
 
 **Build it headless. No UI.** This is deliberate and it is the most important checkpoint
 in the plan: we read the console output together and ask, person by person, *"would I
@@ -230,6 +289,8 @@ Adamic-Adar and Jaccard over the friend graph. That is `structuralSim` — wire 
 
 **Definition of done:** `MatchingHarness` prints top-5 with explanations for all 40
 students, Kabir is Aarav's top match, and Rahul does *not* dominate everyone's list.
+
+</details>
 
 ---
 
