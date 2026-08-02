@@ -1,9 +1,10 @@
 # Campus Connect V2 — Checkpoint
 
 **Last updated:** 2 August 2026
-**Branch:** `v2/foundation` (7 commits ahead of `main`, working tree clean)
-**Status:** Part A complete (M0–M3) **and M4, the matching engine, is done and verified.**
-**Next up: M5 — session, onboarding and profile UI.**
+**Branch:** `v2/foundation` (13 commits ahead of `main`, working tree clean)
+**Status:** ✅ **The whole implementation plan is done — M0 through M11.**
+234 checks pass across nine harnesses; the app launches clean.
+**Next up: Part D — machine learning (roadmap Phase 5), whenever you want it.**
 
 ---
 
@@ -37,20 +38,27 @@ one" and nothing else changes.
 
 ## 3. What works right now
 
-Run it and you get a **40-student campus** with real profiles instead of Alice..Yara.
+Run it and you open **signed in as Aarav**, a first-year who knows nobody, looking at
+six people he should meet — on a **24-student campus** with real profiles.
 
 | Layer | State |
 |---|---|
 | **Interest vocabulary** | 192 tags, 273 aliases, 4-stage resolver (`bball` → `basketball`) |
 | **Person model** | bio, interests + 1–5 intensity, intents, clubs, skills, teach/learn, languages, hometown, hostel, courses, year, major |
 | **Metrics** | PageRank, betweenness, closeness, degree — each in its own field, all normalised to [0,1] |
-| **Persistence** | Gson, explicit DTOs, `schemaVersion: 2`, `LoadReport` for anything skipped |
-| **Seed campus** | 40 students, 62 connections, 6 clusters, 3 cold-start first-years, 1 hub |
-| **Physics** | Stable — speed-capped and lossy walls |
+| **Persistence** | Gson, explicit DTOs, `schemaVersion: 3`, `LoadReport` for anything skipped |
+| **Seed campus** | 24 students, 32 connections, 5 clusters, 3 cold-start first-years, 1 hub, layout pre-settled |
+| **Matching** | IDF interest similarity, TF-IDF bios, context, intent, teach/learn, Adamic-Adar, cold-start reweighting, popularity penalty, isolation nudge, diversity |
+| **Discovery** | Card feed, explanations, serendipity slider, dismissal cooldown, event log |
+| **Insights** | Named circles, squads, who the network is failing, archetypes, warm intros |
+| **Groups** | Interest projection, squad suggestions, fit scoring, cohesion |
+| **Connections** | Requests, accept/decline, typed, origin tracking, icebreakers |
+| **Physics** | Stable — speed-capped, lossy walls, settles before first paint |
+| **Design** | One `Theme`; the accent is reserved for matching-engine output |
 | **Everything from V1** | Still there: Dijkstra, BFS, Louvain, betweenness, bridges, cliques, heatmap, drag, physics |
 
-**Not built yet:** matching engine, onboarding, profile UI, discovery feed, groups,
-connection requests. That's M4 onward.
+**Not built yet:** everything in Part D — link prediction, learned ranking weights,
+Node2Vec, sentence embeddings, contextual bandits. See §10.
 
 ---
 
@@ -74,16 +82,23 @@ In VS Code, F5 works — `.vscode/launch.json` is already configured and the
 ### The three harnesses — run these after any change
 
 ```bash
-java -cp out CampusConnect.dev.InterestCatalogHarness                # 36 checks
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.SeedHarness     # 32 checks
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.PhysicsHarness  #  8 checks
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.MatchingHarness # 11 checks
+CP="out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar"
+
+java -cp "$CP" CampusConnect.dev.InterestCatalogHarness   # 36  vocabulary + resolver
+java -cp "$CP" CampusConnect.dev.SeedHarness              # 32  campus shape + round-trip
+java -cp "$CP" CampusConnect.dev.PhysicsHarness           #  8  layout stability
+java -cp "$CP" CampusConnect.dev.MatchingHarness          # 22  recommendations + heatmap
+java -cp "$CP" CampusConnect.dev.DiscoveryHarness         # 22  serendipity + event log
+java -cp "$CP" CampusConnect.dev.InsightHarness           # 30  circles, squads, archetypes
+java -cp "$CP" CampusConnect.dev.GroupHarness             # 30  groups + fit
+java -cp "$CP" CampusConnect.dev.ConnectionHarness        # 31  intros, requests, nudge
+java -cp "$CP" CampusConnect.dev.UiHarness                # 23  session + components
 ```
 
-**All 87 should pass.** These are the regression net — there is no JUnit in this project,
+**All 234 should pass.** These are the regression net — there is no JUnit in this project,
 and they have already caught four real bugs that reading the code did not.
 
-`MatchingHarness` also prints top-3 for all 40 students. Read that output whenever you
+`MatchingHarness` also prints top-3 for every student. Read that output whenever you
 touch the weights — it is the fastest way to tell whether a change helped.
 
 ---
@@ -94,12 +109,17 @@ touch the weights — it is the fastest way to tell whether a change helped.
 PorjectLink/src/CampusConnect/
 ├── domain/       Person, InterestTag, InterestCatalog, Category, Intent,
 │                 NodeMetrics, Edge
-├── service/      NetworkService          ← graph + physics + stats (still doing a lot)
-├── persist/      GraphIO, CampusSeed, InterestCatalogLoader
+├── app/          AppSession                ← who is using the app
+├── service/      NetworkService (graph + physics), RecommendationService,
+│                 InsightService, GroupService, ConnectionService,
+│                 ExplanationBuilder
+├── persist/      GraphIO, CampusSeed, EventLog, InterestCatalogLoader
 ├── algorithm/    PageRank, CentralityMetrics, CommunityDetection, GraphAnalyzer,
-│                 DijkstraAlgorithm, FriendRecommender, GraphGenerator
-├── ui/           MainFrame, NetworkCanvas, StatsPanel, AlgorithmVisualizer
-├── dev/          InterestCatalogHarness, SeedHarness, PhysicsHarness
+│   │             DijkstraAlgorithm, FriendRecommender, GraphGenerator
+│   └── similarity/  InterestSimilarity, TfIdf, SimilarityEngine
+├── ui/           Theme, MainFrame, NetworkCanvas, StatsPanel, ProfileCard,
+│                 DiscoveryPanel, OnboardingWizard, InterestChipPicker
+├── dev/          nine harnesses
 └── main/         Main
 ```
 
@@ -110,7 +130,9 @@ or a Python ML sidecar a *port* rather than a rewrite.
 **Files worth knowing:**
 - `domain/InterestCatalog.java` — the 192-tag vocabulary and resolver. Highest-leverage
   file in the project.
-- `persist/CampusSeed.java` — the 40 students. Shaped deliberately, see §7.
+- `persist/CampusSeed.java` — the 24 students. Shaped deliberately, see §7.
+- `ui/Theme.java` — every colour. The accent means "the engine produced this".
+- `service/RecommendationService.java` — the affinity function; weights in `Weights.defaults()`.
 - `service/NetworkService.java` — graph store *and* physics *and* stats. Will need
   splitting eventually; not urgent.
 
@@ -220,77 +242,24 @@ intent 0.07 | teachLearn 0.07 | popularityPenalty 0.08
 
 ---
 
-## 9b. Pick up here → M5, session and onboarding
+## 9b. Pick up here → Part D, machine learning
 
-The engine works but nothing in the UI uses it yet. M5 makes it reachable:
+Everything in the plan is built. The next phase is the one the whole architecture was
+shaped for, and it is now genuinely easy because the groundwork exists:
 
-- `app/AppSession.java` — the concept of **you**. The app currently has no current user,
-  which a social app fundamentally requires.
-- `ui/OnboardingWizard.java` — 4 steps: *Basics → Interests → About You → Looking For*.
-  Under 90 seconds, everything skippable, autocomplete everywhere. The moment they hit
-  Finish, **show them 5 people they should meet** — never drop a new user on an empty canvas.
-- `ui/InterestChipPicker.java` — autocomplete + chips, wired to `InterestCatalog.search()`.
-- `ui/ProfileCard.java` — replaces the raw `JTextArea` dump with a real card.
+- **`EventLog` has been collecting since M7** — every suggestion shown, accepted and
+  dismissed, with the score at the time and a reason on each rejection. That is a
+  labelled dataset that cannot be reconstructed after the fact, which is why it started
+  recording long before anything read it.
+- **The affinity function is one method** (`RecommendationService.score`) behind one
+  weights record. Replacing hand-tuned weights with learned ones changes that and
+  nothing else.
+- **`MatchingHarness` is the baseline to beat.** A model that cannot outperform the
+  heuristic does not ship — without that comparison "we added ML" is unfalsifiable.
 
-Then **M6 is nearly free** and is the one you were most excited about: `NodeMetrics` already
-has a `SIMILARITY_TO_ME` slot and `NetworkCanvas` already has `setHeatmapMetric()`. Wiring
-the recommender's per-person score into that field colours the entire campus by how well
-each person matches you.
-
-### Reference — the old M4 spec, now implemented
-
-<details>
-<summary>What was planned, for comparison against what shipped</summary>
-
-**Build it headless. No UI.** This is deliberate and it is the most important checkpoint
-in the plan: we read the console output together and ask, person by person, *"would I
-actually want to meet them?"* Wrong weights get fixed in minutes. Build the UI first and
-you are debugging Swing layout while trying to judge match quality — two hard problems
-tangled into one.
-
-**Files to create:**
-
-```
-algorithm/similarity/TfIdf.java              bio text vectorizer + cosine
-algorithm/similarity/InterestSimilarity.java IDF-weighted Jaccard over tags
-algorithm/similarity/SimilarityEngine.java   context, intent, teach/learn
-service/RecommendationService.java           the blend, cold start, popularity penalty
-service/ExplanationBuilder.java              the human sentence
-dev/MatchingHarness.java                     top-5 for all 40 students
-```
-
-**The score:**
-
-```
-affinity(u,v) = w1·interestSim + w2·bioSim + w3·contextSim
-              + w4·structuralSim + w5·intentMatch − w6·popularityPenalty
-```
-
-**IDF weighting** — "we both like Carnatic fusion" must outrank "we both like music":
-
-```
-idf(t)           = log( N / (1 + peopleWithTag(t)) )
-interestSim(u,v) = Σ_{t ∈ u∩v} idf(t)  /  Σ_{t ∈ u∪v} idf(t)
-```
-
-**Three things that are not optional:**
-
-- **Cold-start reweighting.** When `degree(u) < 3`, `structuralSim` is 0 and carries no
-  information. Renormalise so the content terms carry the whole score. This is Aarav, and
-  he is the user the product exists for.
-- **Popularity penalty.** Without it every recommendation converges on the same three
-  hubs. Rahul is in the seed specifically to catch this.
-- **Explanations.** Never show a bare score. *"Suggested because you both play guitar and
-  are into indie music."* ~30 lines over data already computed, and it makes the
-  recommender debuggable.
-
-**Reuse, don't rewrite:** `algorithm/FriendRecommender.java` already implements
-Adamic-Adar and Jaccard over the friend graph. That is `structuralSim` — wire it in.
-
-**Definition of done:** `MatchingHarness` prints top-5 with explanations for all 40
-students, Kabir is Aarav's top match, and Rahul does *not* dominate everyone's list.
-
-</details>
+Suggested order: feature pipeline → hand-written logistic-regression link prediction →
+learned ranking weights → Node2Vec → sentence embeddings for bios → contextual bandit on
+the serendipity axis, which is already an exposed control with its choices logged.
 
 ---
 
