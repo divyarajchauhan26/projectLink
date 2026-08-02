@@ -6,14 +6,14 @@ This project models a college social network using graph data structures. Users 
 The quickest way — builds if needed, then launches:
 
 ```powershell
-.un.ps1
+./run.ps1
 ```
 
 Other modes:
 
 ```powershell
-.un.ps1 -Test     # run the nine verification harnesses (234 checks)
-.un.ps1 -Clean    # force a full rebuild first
+./run.ps1 -Test     # run the nine verification harnesses (234 checks)
+./run.ps1 -Clean    # force a full rebuild first
 ```
 
 In VS Code, F5 also works once the Java extension has picked up the `lib/` jars.
