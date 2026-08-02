@@ -366,18 +366,58 @@ public class MainFrame extends JFrame {
         // --- VIEW ---
         JMenu menuView = new JMenu("View");
         JMenuItem viewNormal = new JMenuItem("Normal View");
-        JMenuItem viewHeatmap = new JMenuItem("Toggle Heatmap");
+
+        JMenu menuHeat = new JMenu("Heatmap");
+        JMenuItem heatSimilarity = new JMenuItem("★ Similarity to Me");
+        JMenuItem heatInfluence = new JMenuItem("Influence (PageRank)");
+        JMenuItem heatBridge = new JMenuItem("Bridge Score (Betweenness)");
+        JMenuItem heatReach = new JMenuItem("Reach (Closeness)");
+        JMenuItem heatDegree = new JMenuItem("Connections (Degree)");
+
         JMenuItem viewCommunity = new JMenuItem("Toggle Communities");
-        
+
         viewNormal.addActionListener(e -> {
             canvas.setShowCommunities(false);
             canvas.setShowHeatmap(false);
             canvas.setBridges(null);
+            canvas.clearSuggested();
         });
-        viewHeatmap.addActionListener(e -> canvas.setShowHeatmap(true));
+
+        heatSimilarity.addActionListener(e -> showSimilarityHeatmap());
+        heatInfluence.addActionListener(e -> {
+            PageRank.compute(service.getAllUsers(), service.getAdjacencyList());
+            canvas.setHeatmapMetric(NodeMetrics.Metric.PAGE_RANK);
+            onGraphChanged("Heatmap: influence.");
+        });
+        heatBridge.addActionListener(e -> {
+            CentralityMetrics.betweennessCentrality(service.getAllUsers(), service.getAdjacencyList())
+                    .forEach((u, v) -> u.getMetrics().setBetweenness(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.BETWEENNESS);
+            onGraphChanged("Heatmap: bridge score.");
+        });
+        heatReach.addActionListener(e -> {
+            CentralityMetrics.closenessCentrality(service.getAllUsers(), service.getAdjacencyList())
+                    .forEach((u, v) -> u.getMetrics().setCloseness(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.CLOSENESS);
+            onGraphChanged("Heatmap: reach.");
+        });
+        heatDegree.addActionListener(e -> {
+            CentralityMetrics.degreeCentrality(service.getAllUsers(), service.getAdjacencyList())
+                    .forEach((u, v) -> u.getMetrics().setDegree(v));
+            canvas.setHeatmapMetric(NodeMetrics.Metric.DEGREE);
+            onGraphChanged("Heatmap: connection count.");
+        });
+
         viewCommunity.addActionListener(e -> canvas.setShowCommunities(true));
-        
-        menuView.add(viewNormal); menuView.add(viewHeatmap); menuView.add(viewCommunity);
+
+        menuHeat.add(heatSimilarity);
+        menuHeat.addSeparator();
+        menuHeat.add(heatInfluence);
+        menuHeat.add(heatBridge);
+        menuHeat.add(heatReach);
+        menuHeat.add(heatDegree);
+
+        menuView.add(viewNormal); menuView.add(menuHeat); menuView.add(viewCommunity);
 
         // --- ME ---
         JMenu menuMe = new JMenu("Me");
@@ -709,6 +749,34 @@ public class MainFrame extends JFrame {
         for (Suggestion s : suggestions) highlight.add(s.person());
         canvas.setSuggested(highlight);
         statusLabel.setText(suggestions.size() + " suggestions for " + me.getName());
+    }
+
+    /**
+     * Colour the whole campus by how well each person matches the signed-in user.
+     * <p>
+     * The other heatmaps describe the network — who is influential, who bridges groups.
+     * This one describes it <em>from where you are standing</em>, which is the only view
+     * that answers the question a student actually has.
+     */
+    private void showSimilarityHeatmap() {
+        Person me = session.getCurrentUser();
+        if (me == null) {
+            JOptionPane.showMessageDialog(this,
+                    "This map is relative to you, so we need to know who you are first.\n"
+                            + "Use Me ▸ Create My Profile, or sign in as an existing student.");
+            return;
+        }
+
+        Map<Person, Double> affinity = recommender().affinityTo(me);
+        for (Person p : service.getAllUsers()) {
+            p.getMetrics().setSimilarityToMe(affinity.getOrDefault(p, 0.0));
+        }
+        // You are trivially a perfect match for yourself; showing that as the hottest
+        // node would waste the top of the scale on information nobody needs.
+        me.getMetrics().setSimilarityToMe(0.0);
+
+        canvas.setHeatmapMetric(NodeMetrics.Metric.SIMILARITY_TO_ME);
+        statusLabel.setText("Campus coloured by how well each person matches " + me.getName());
     }
 
     /** Switches the side panel back to algorithm output. */

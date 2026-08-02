@@ -7,6 +7,7 @@ import CampusConnect.domain.Person;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -136,38 +137,89 @@ public final class RecommendationService {
         for (Person candidate : service.getAllUsers()) {
             if (candidate == target || alreadyFriends.contains(candidate)) continue;
 
-            double interest = similarity.interestSim(target, candidate);
-            double bio = similarity.bioSim(target, candidate);
-            double context = similarity.contextSim(target, candidate);
-            double intent = similarity.intentMatch(target, candidate);
-            double teachLearn = similarity.teachLearnMatch(target, candidate);
+            Scored s = score(target, candidate, w);
+            if (s.score() <= 0.01) continue; // nothing meaningful in common
 
-            // Adamic-Adar is unbounded, so squash it rather than normalising against the
-            // best candidate — that would inflate a weak top match to a perfect score.
-            double adamicAdar = FriendRecommender.adamicAdar(target, candidate, adjacency);
-            double structural = adamicAdar / (adamicAdar + 1.5);
-
-            double popularity = popularityPenalty(candidate);
-
-            double score = w.interest() * interest
-                    + w.bio() * bio
-                    + w.context() * context
-                    + w.structural() * structural
-                    + w.intent() * intent
-                    + w.teachLearn() * teachLearn
-                    - w.popularityPenalty() * popularity;
-
-            if (score <= 0.01) continue; // nothing meaningful in common
-
-            Signals signals = new Signals(interest, bio, context, structural, intent, teachLearn, popularity);
             List<Person> mutual = FriendRecommender.commonNeighbours(target, candidate, adjacency);
-            String why = explanations.build(target, candidate, signals, mutual);
-
-            scored.add(new Suggestion(candidate, score, signals, mutual, why));
+            String why = explanations.build(target, candidate, s.signals(), mutual);
+            scored.add(new Suggestion(candidate, s.score(), s.signals(), mutual, why));
         }
 
         scored.sort((a, b) -> Double.compare(b.score(), a.score()));
         return diversify(scored, limit);
+    }
+
+    /** One scored pair, before it becomes a user-facing Suggestion. */
+    private record Scored(double score, Signals signals) {}
+
+    /**
+     * The affinity function itself. Shared by {@link #recommend} and
+     * {@link #affinityTo} so the heatmap can never disagree with the ranked list —
+     * two implementations of the same formula would drift apart within a milestone.
+     */
+    private Scored score(Person target, Person candidate, Weights w) {
+        Map<Person, List<Person>> adjacency = service.getAdjacencyList();
+
+        double interest = similarity.interestSim(target, candidate);
+        double bio = similarity.bioSim(target, candidate);
+        double context = similarity.contextSim(target, candidate);
+        double intent = similarity.intentMatch(target, candidate);
+        double teachLearn = similarity.teachLearnMatch(target, candidate);
+
+        // Adamic-Adar is unbounded, so squash it rather than normalising against the
+        // best candidate — that would inflate a weak top match to a perfect score.
+        double adamicAdar = FriendRecommender.adamicAdar(target, candidate, adjacency);
+        double structural = adamicAdar / (adamicAdar + 1.5);
+
+        double popularity = popularityPenalty(candidate);
+
+        double total = w.interest() * interest
+                + w.bio() * bio
+                + w.context() * context
+                + w.structural() * structural
+                + w.intent() * intent
+                + w.teachLearn() * teachLearn
+                - w.popularityPenalty() * popularity;
+
+        return new Scored(total,
+                new Signals(interest, bio, context, structural, intent, teachLearn, popularity));
+    }
+
+    /**
+     * Affinity from one person to everybody else, rescaled to [0,1] for display.
+     * <p>
+     * Unlike {@link #recommend}, existing friends are <em>included</em> — this drives the
+     * "similarity to me" heatmap, where the honest picture is the whole campus shaded by
+     * how well each person fits you, not just the people you have yet to meet.
+     * <p>
+     * Rescaling is by the observed range rather than absolute, because raw affinity values
+     * cluster in a narrow band (roughly 0.05–0.45) and would render as one flat colour.
+     *
+     * @return every other person mapped to [0,1]; the target itself is omitted
+     */
+    public Map<Person, Double> affinityTo(Person target) {
+        Map<Person, Double> out = new LinkedHashMap<>();
+        if (target == null) return out;
+
+        Weights w = isColdStart(target) ? redistributeForColdStart(weights) : weights;
+
+        double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;
+        for (Person other : service.getAllUsers()) {
+            if (other == target) continue;
+            double s = score(target, other, w).score();
+            out.put(other, s);
+            min = Math.min(min, s);
+            max = Math.max(max, s);
+        }
+
+        double range = max - min;
+        if (range <= 1e-9) {
+            out.replaceAll((p, v) -> 0.5); // everyone equally alike — a flat map is honest
+        } else {
+            final double lo = min, r = range;
+            out.replaceAll((p, v) -> (v - lo) / r);
+        }
+        return out;
     }
 
     // ================= cold start =================

@@ -39,6 +39,7 @@ public class MatchingHarness {
         spotlight(svc, recommender);
         everyone(svc, recommender);
         invariants(svc, recommender);
+        affinityMap(svc, recommender);
 
         System.out.println();
         System.out.println(failures == 0
@@ -187,6 +188,66 @@ public class MatchingHarness {
             }
         }
         return count == 0 ? 0 : total / count;
+    }
+
+    // ---------- the similarity heatmap ----------
+
+    /**
+     * The affinity map behind the "similarity to me" heatmap.
+     * <p>
+     * The heatmap and the ranked suggestion list are two views of the same numbers, and a
+     * user will absolutely put them side by side. If the hottest node on the map were not
+     * the top of the list, one of them would be lying — so that agreement is checked
+     * directly rather than assumed from the fact that both call score().
+     */
+    private static void affinityMap(NetworkService svc, RecommendationService rec) {
+        System.out.println("\n" + "=".repeat(78));
+        System.out.println("SIMILARITY HEATMAP");
+        System.out.println("=".repeat(78));
+
+        for (String name : new String[]{"Aarav Jain", "Priya Menon"}) {
+            Person me = svc.findUserByName(name);
+            Map<Person, Double> affinity = rec.affinityTo(me);
+
+            check(name + ": map covers everyone but themselves",
+                    affinity.size() == svc.getAllUsers().size() - 1);
+            check(name + ": no self entry", !affinity.containsKey(me));
+
+            boolean inRange = affinity.values().stream().allMatch(v -> v >= 0.0 && v <= 1.0);
+            check(name + ": every value is within [0,1]", inRange);
+
+            // Existing friends must be present — the heatmap shades the whole campus,
+            // not just the people you have yet to meet.
+            List<Person> friends = svc.getConnections(me);
+            boolean friendsIncluded = friends.isEmpty()
+                    || friends.stream().allMatch(affinity::containsKey);
+            check(name + ": existing friends are included", friendsIncluded);
+
+            List<Map.Entry<Person, Double>> ranked = new ArrayList<>(affinity.entrySet());
+            ranked.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+            System.out.printf("%n  %s — hottest on the map:%n", name);
+            for (int i = 0; i < Math.min(4, ranked.size()); i++) {
+                Map.Entry<Person, Double> e = ranked.get(i);
+                boolean isFriend = friends.contains(e.getKey());
+                System.out.printf("    %.2f  %-20s %s%n",
+                        e.getValue(), e.getKey().getName(), isFriend ? "(already a friend)" : "");
+            }
+
+            // The hottest non-friend must be the same person the list puts first.
+            Person hottestStranger = ranked.stream()
+                    .map(Map.Entry::getKey)
+                    .filter(p -> !friends.contains(p))
+                    .findFirst().orElse(null);
+            List<Suggestion> top = rec.recommend(me, 1);
+            check(name + ": hottest non-friend equals the top suggestion",
+                    hottestStranger != null && !top.isEmpty()
+                            && hottestStranger == top.get(0).person());
+        }
+
+        // A null user must not blow up — the menu item is reachable before signing in.
+        check("affinityTo(null) returns empty rather than throwing",
+                rec.affinityTo(null).isEmpty());
     }
 
     // ---------- formatting ----------

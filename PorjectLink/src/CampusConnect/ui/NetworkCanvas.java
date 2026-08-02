@@ -311,5 +311,77 @@ public class NetworkCanvas extends JPanel {
             g2.setColor(Color.WHITE);
             g2.drawString(u.getName(), u.getX() - 15, u.getY() - 25);
         }
+
+        // 4. LEGEND
+        if (showHeatmap) drawHeatmapLegend(g2);
+        else if (showCommunities) drawCommunityLegend(g2);
+    }
+
+    /**
+     * A colour ramp with its two ends labelled.
+     * <p>
+     * Without this the heatmap is just coloured dots — the viewer has no way to know
+     * whether red means "most" or "least", nor which metric is being shown at all. That
+     * was a real gap: choosing a different centrality repainted the canvas with no
+     * indication anything had changed.
+     */
+    private void drawHeatmapLegend(Graphics2D g2) {
+        final int x = 14, y = 14, w = 150, h = 12;
+
+        g2.setColor(new Color(0, 0, 0, 140));
+        g2.fillRect(x - 8, y - 8, w + 90, h + 44);
+
+        for (int i = 0; i < w; i++) {
+            g2.setColor(getHeatmapColor((double) i / (w - 1)));
+            g2.drawLine(x + i, y, x + i, y + h);
+        }
+        g2.setColor(new Color(200, 200, 200));
+        g2.drawRect(x, y, w, h);
+
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        g2.setColor(Color.WHITE);
+        String title = heatmapMetric.getLabel();
+        if (heatmapMetric == NodeMetrics.Metric.SIMILARITY_TO_ME && currentUser != null) {
+            title = "Similarity to " + currentUser.getName();
+        }
+        g2.drawString(title, x, y + h + 15);
+
+        g2.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+        g2.setColor(new Color(180, 180, 180));
+        g2.drawString("low", x, y + h + 29);
+        String high = "high";
+        g2.drawString(high, x + w - g2.getFontMetrics().stringWidth(high), y + h + 29);
+    }
+
+    /** Which community colour maps to which id, so the palette means something. */
+    private void drawCommunityLegend(Graphics2D g2) {
+        java.util.Set<Integer> ids = new java.util.TreeSet<>();
+        for (Person p : service.getAllUsers()) {
+            int id = p.getMetrics().getCommunityId();
+            if (id >= 0) ids.add(id);
+        }
+        if (ids.isEmpty()) return;
+
+        final int x = 14, y = 14, box = 11, step = 16;
+        int rows = Math.min(ids.size(), COMMUNITY_COLORS.length);
+
+        g2.setColor(new Color(0, 0, 0, 140));
+        g2.fillRect(x - 8, y - 8, 120, rows * step + 26);
+
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        g2.setColor(Color.WHITE);
+        g2.drawString("Circles", x, y + 4);
+
+        g2.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        int row = 0;
+        for (int id : ids) {
+            if (row >= COMMUNITY_COLORS.length) break;
+            int ry = y + 14 + row * step;
+            g2.setColor(COMMUNITY_COLORS[id % COMMUNITY_COLORS.length]);
+            g2.fillRect(x, ry, box, box);
+            g2.setColor(new Color(210, 210, 210));
+            g2.drawString("Circle " + id, x + box + 6, ry + box - 1);
+            row++;
+        }
     }
 }
