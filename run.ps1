@@ -14,8 +14,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $proj = Join-Path $PSScriptRoot "PorjectLink"
-$out  = Join-Path $proj "out"
-$cp   = "out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar"
+# Deliberately NOT "out": VS Code's Java extension owns that directory
+# (java.project.outputPath in .vscode/settings.json). It recompiles continuously and
+# will happily write class files it believes are broken -- those throw
+# "Unresolved compilation problems" at runtime. Sharing the directory meant the script
+# saw newer-than-source classes, skipped its own build, and ran the IDE's broken output.
+$out  = Join-Path $proj "build"
+$cp   = "build;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar"
 
 Push-Location $proj
 try {
@@ -35,7 +40,7 @@ try {
         Write-Host "Building..." -ForegroundColor Cyan
         if (-not (Test-Path $out)) { New-Item -ItemType Directory $out | Out-Null }
         $sources = Get-ChildItem -Recurse -Filter *.java src | ForEach-Object FullName
-        javac -d out -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar" $sources
+        javac -d build -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar" $sources
         if ($LASTEXITCODE -ne 0) { throw "Build failed." }
         Write-Host "Built $((Get-ChildItem -Recurse -Filter *.class $out).Count) classes." -ForegroundColor Green
     }
@@ -43,7 +48,7 @@ try {
     if ($Test) {
         $harnesses = @(
             "InterestCatalogHarness", "SeedHarness", "PhysicsHarness",
-            "MatchingHarness", "DiscoveryHarness", "InsightHarness",
+            "ViewportHarness", "MatchingHarness", "DiscoveryHarness", "InsightHarness",
             "GroupHarness", "ConnectionHarness", "UiHarness"
         )
         $failed = 0

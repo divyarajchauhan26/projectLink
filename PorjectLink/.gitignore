@@ -27,3 +27,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+# Script build output (VS Code owns PorjectLink/out)
+build/
+PorjectLink/build/
