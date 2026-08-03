@@ -29,7 +29,7 @@ public class StatsPanel extends JPanel {
     public StatsPanel(NetworkService service) {
         this.service = service;
         setLayout(new BorderLayout());
-        setPreferredSize(new Dimension(220, 0));
+        setPreferredSize(new Dimension(248, 0));
         setBackground(Theme.PANEL);
         setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -78,8 +78,9 @@ public class StatsPanel extends JPanel {
         
         JScrollPane scrollPane = new JScrollPane(topUsersList);
         scrollPane.setBorder(null);
-        scrollPane.setPreferredSize(new Dimension(200, 150));
-        scrollPane.setMaximumSize(new Dimension(200, 200));
+        scrollPane.setPreferredSize(new Dimension(228, 150));
+        scrollPane.setMaximumSize(new Dimension(228, 200));
+        scrollPane.getViewport().setBackground(Theme.ELEVATED);
         statsContainer.add(scrollPane);
 
         add(statsContainer, BorderLayout.CENTER);
@@ -118,8 +119,9 @@ public class StatsPanel extends JPanel {
 
         for (int i = 0; i < sorted.size(); i++) {
             Person u = sorted.get(i);
-            topUsersModel.addElement((i + 1) + ". " + u.getName()
-                    + " (" + String.format("%.2f", u.getMetrics().getPageRank()) + ")");
+            String shortName = u.getName().split(" ")[0];
+            topUsersModel.addElement(String.format("%d. %-10s %.2f",
+                    i + 1, shortName, u.getMetrics().getPageRank()));
         }
     }
 }

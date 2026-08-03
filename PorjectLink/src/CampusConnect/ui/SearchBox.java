@@ -210,7 +210,7 @@ public class SearchBox extends JPanel {
         HitRenderer() {
             setLayout(new BorderLayout());
             setBorder(BorderFactory.createEmptyBorder(5, 9, 5, 9));
-            name.setFont(Theme.title(12));
+            name.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
             reason.setFont(Theme.body(10));
             add(name, BorderLayout.NORTH);
             add(reason, BorderLayout.SOUTH);

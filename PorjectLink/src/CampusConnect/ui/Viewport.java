@@ -135,8 +135,11 @@ public final class Viewport {
             maxY = Math.max(maxY, p.y + nodeRadius);
         }
 
-        // Extra headroom at the top for name labels, which are drawn above each node.
-        double margin = 40;
+        // Generous margin, because a node exactly at the edge of the fit is still
+        // unusable: its name label sits below it and the zoom badge and minimap are
+        // drawn over the corners. Fitting to the literal bounding box left people
+        // half-hidden behind the chrome.
+        double margin = 90;
         double spanX = Math.max(1, maxX - minX) + margin * 2;
         double spanY = Math.max(1, maxY - minY) + margin * 2;
 

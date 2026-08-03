@@ -526,7 +526,8 @@ public class NetworkCanvas extends JPanel {
     }
 
     private void drawHeatLegend(Graphics2D g2) {
-        final int x = 16, y = 16, w = 148, h = 10;
+        final int w = 148, h = 10;
+        final int x = 16, y = getHeight() - h - 58;
         g2.setColor(Theme.alpha(Theme.BG, 210));
         g2.fillRoundRect(x - 10, y - 10, w + 100, h + 46, 10, 10);
         g2.setColor(Theme.BORDER);
@@ -559,8 +560,9 @@ public class NetworkCanvas extends JPanel {
         }
         if (ids.isEmpty()) return;
 
-        final int x = 16, y = 16, box = 10, step = 16;
+        final int box = 10, step = 16;
         int rows = Math.min(ids.size(), COMMUNITY_COLORS.length);
+        final int x = 16, y = getHeight() - (rows * step + 30) - 14;
 
         g2.setColor(Theme.alpha(Theme.BG, 210));
         g2.fillRoundRect(x - 10, y - 10, 116, rows * step + 30, 10, 10);

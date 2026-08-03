@@ -75,6 +75,7 @@ public class DiscoveryPanel extends JPanel {
 
         JScrollPane scroll = new JScrollPane(cardStack);
         scroll.setBorder(null);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         scroll.getViewport().setBackground(Theme.PANEL);
         add(scroll, BorderLayout.CENTER);
@@ -185,15 +186,27 @@ public class DiscoveryPanel extends JPanel {
 
         // name row
         String emoji = them.getAvatarEmoji().isBlank() ? "🙂" : them.getAvatarEmoji();
+        JPanel nameRow = new JPanel(new BorderLayout());
+        nameRow.setOpaque(false);
+        nameRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        nameRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 22));
+
+        JLabel score = new JLabel(String.format("%.0f%%", suggestion.score() * 100));
+        score.setForeground(Theme.ACCENT);
+        score.setFont(Theme.title(11));
+        score.setToolTipText("How strongly the profiles match");
+        nameRow.add(score, BorderLayout.EAST);
+
         JLabel name = new JLabel(emoji + "  " + them.getName());
         name.setForeground(Theme.TEXT);
-        name.setFont(Theme.title(14));
+        name.setFont(new Font("Segoe UI Emoji", Font.BOLD, 14));
         name.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(name);
+        nameRow.add(name, BorderLayout.CENTER);
+        card.add(nameRow);
 
         String sub = subtitle(them);
         if (!sub.isBlank()) {
-            JLabel subtitle = new JLabel(sub);
+            JLabel subtitle = new JLabel("<html><body style='width:222px'>" + escape(sub) + "</body></html>");
             subtitle.setForeground(Theme.TEXT_DIM);
             subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 11));
             subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -203,7 +216,7 @@ public class DiscoveryPanel extends JPanel {
         card.add(Box.createVerticalStrut(6));
 
         // the reason — the most important line on the card
-        JLabel why = new JLabel("<html><body style='width:230px'>"
+        JLabel why = new JLabel("<html><body style='width:222px'>"
                 + escape(suggestion.explanation()) + "</body></html>");
         why.setForeground(Theme.ACCENT);
         why.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -212,7 +225,7 @@ public class DiscoveryPanel extends JPanel {
 
         String shared = sharedInterests(me, them);
         if (!shared.isBlank()) {
-            JLabel tags = new JLabel("<html><body style='width:230px'>" + escape(shared) + "</body></html>");
+            JLabel tags = new JLabel("<html><body style='width:222px'>" + escape(shared) + "</body></html>");
             tags.setForeground(Theme.TEXT_DIM);
             tags.setFont(new Font("Segoe UI", Font.PLAIN, 10));
             tags.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -232,16 +245,12 @@ public class DiscoveryPanel extends JPanel {
         connect.setForeground(Theme.BG);
         connect.addActionListener(e -> connect(me, suggestion));
 
-        JButton dismiss = new JButton("Not interested");
+        JButton dismiss = new JButton("Skip");
+        dismiss.setToolTipText("Not interested — we'll ask why");
         dismiss.addActionListener(e -> dismiss(me, suggestion));
-
-        JLabel score = new JLabel(String.format("%.0f%% match", suggestion.score() * 100));
-        score.setForeground(Theme.TEXT_FAINT);
-        score.setFont(new Font("Segoe UI", Font.PLAIN, 10));
 
         buttons.add(connect);
         buttons.add(dismiss);
-        buttons.add(score);
         card.add(buttons);
 
         return card;
@@ -317,7 +326,7 @@ public class DiscoveryPanel extends JPanel {
     }
 
     private JLabel message(String text) {
-        JLabel l = new JLabel("<html><body style='width:230px'>" + escape(text) + "</body></html>");
+        JLabel l = new JLabel("<html><body style='width:222px'>" + escape(text) + "</body></html>");
         l.setForeground(Theme.TEXT_DIM);
         l.setBorder(new EmptyBorder(16, 12, 16, 12));
         l.setAlignmentX(Component.LEFT_ALIGNMENT);

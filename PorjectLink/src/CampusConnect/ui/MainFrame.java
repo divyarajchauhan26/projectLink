@@ -78,7 +78,7 @@ public class MainFrame extends JFrame {
         setSize(1360, 880);
         // The two side panels take a fixed 520px. Below this the graph gets squeezed to
         // nothing, so refuse to go smaller rather than degrade silently.
-        setMinimumSize(new Dimension(1040, 640));
+        setMinimumSize(new Dimension(1100, 660));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
@@ -171,7 +171,7 @@ public class MainFrame extends JFrame {
 
         // --- Right Panel: a profile card OR algorithm output, swapped by CardLayout ---
         JPanel sidePanel = new JPanel(new BorderLayout());
-        sidePanel.setPreferredSize(new Dimension(300, 0));
+        sidePanel.setPreferredSize(new Dimension(348, 0));
         sidePanel.setBackground(Theme.PANEL);
         sidePanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -182,6 +182,8 @@ public class MainFrame extends JFrame {
 
         pathDisplay = new JTextArea();
         pathDisplay.setEditable(false);
+        pathDisplay.setLineWrap(true);
+        pathDisplay.setWrapStyleWord(true);
         pathDisplay.setBackground(Theme.PANEL);
         pathDisplay.setForeground(Theme.TEXT);
         pathDisplay.setFont(Theme.mono(12));
@@ -290,6 +292,12 @@ public class MainFrame extends JFrame {
             // open, so the app looked like the graph editor it used to be. Starting as
             // Aarav puts the recommender on screen immediately, and he is the honest
             // demonstration: no friends, so nothing on his feed can come from the graph.
+            // Otherwise every number in the stats rail reads 0.00 on open, which looks
+            // like a bug rather than "nothing has been run yet".
+            PageRank.compute(service.getAllUsers(), service.getAdjacencyList());
+            CommunityDetection.detectCommunities(service.getAllUsers(), service.getAdjacencyList());
+            statsPanel.updateStats();
+
             canvas.fitToView();
 
             Person demo = service.findUserByName("Aarav Jain");
@@ -770,7 +778,7 @@ public class MainFrame extends JFrame {
 
         for (InsightService.Circle c : circles) {
             sb.append(c.name()).append('\n');
-            sb.append("  ").append(c.size()).append(" people · ")
+            sb.append("  ").append(c.sizeLabel()).append(" · ")
               .append(String.format("%.0f%% ", c.density() * 100))
               .append(c.density() > 0.6 ? "tight-knit" : c.density() > 0.3 ? "well connected" : "loose")
               .append('\n');

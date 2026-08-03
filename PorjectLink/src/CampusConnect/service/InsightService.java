@@ -35,6 +35,8 @@ public final class InsightService {
     /** A detected community, named after what its members actually have in common. */
     public record Circle(int id, String name, List<Person> members, double density) {
         public int size() { return members.size(); }
+        /** "3 people" but "1 person". */
+        public String sizeLabel() { return size() + (size() == 1 ? " person" : " people"); }
     }
 
     /**
