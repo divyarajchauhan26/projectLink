@@ -18,6 +18,7 @@ import CampusConnect.service.RecommendationService.Suggestion;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.io.File;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ public class MainFrame extends JFrame {
     private GroupService groupService;
     private ConnectionService connections;
     private SearchBox searchBox;
+    private Toast toast;
 
     // MODES for clicking on canvas
     private enum Mode { CONNECT, DISCONNECT, PATH, DELETE, VIEW, SET_WEIGHT }
@@ -149,6 +151,9 @@ public class MainFrame extends JFrame {
 
         add(toolBar, BorderLayout.NORTH);
 
+        toast = new Toast(getLayeredPane());
+        installShortcuts(btnInspect, btnConnect, btnPhysics);
+
         getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke("control F"), "focusSearch");
         getRootPane().getActionMap().put("focusSearch", new AbstractAction() {
@@ -236,7 +241,7 @@ public class MainFrame extends JFrame {
                     service.addRandomUser(name, NetworkService.WORLD_WIDTH, NetworkService.WORLD_HEIGHT);
                     onGraphChanged("Added " + name);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, ex.getMessage());
+                    toast.error(ex.getMessage());
                 }
             }
         });
@@ -247,8 +252,7 @@ public class MainFrame extends JFrame {
                 try {
                     handleNodeClick(clicked);
                 } catch (Exception ex) {
-                    statusLabel.setText("Error: " + ex.getMessage());
-                    JOptionPane.showMessageDialog(this, "Operation failed: " + ex.getMessage());
+                    toast.error(ex.getMessage());
                 }
             }
         });
@@ -458,9 +462,9 @@ public class MainFrame extends JFrame {
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 GraphIO.save(service, groups().all(), chooser.getSelectedFile());
-                statusLabel.setText("Saved " + service.getAllUsers().size() + " profiles.");
+                toast.success("Saved " + service.getAllUsers().size() + " profiles.");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error saving: " + ex.getMessage());
+                toast.error("Could not save: " + ex.getMessage());
             }
         }
     }
@@ -482,7 +486,7 @@ public class MainFrame extends JFrame {
                     pathDisplay.setText(sb.toString());
                 }
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error loading: " + ex.getMessage());
+                toast.error("Could not load: " + ex.getMessage());
             }
         }
     }
@@ -492,9 +496,9 @@ public class MainFrame extends JFrame {
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 GraphIO.exportCsv(service, chooser.getSelectedFile());
-                statusLabel.setText("CSV exported successfully.");
+                toast.success("CSV exported.");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error exporting: " + ex.getMessage());
+                toast.error("Could not export: " + ex.getMessage());
             }
         }
     }
@@ -556,7 +560,7 @@ public class MainFrame extends JFrame {
                             service.setEdgeWeight(selection, clicked, w);
                             onGraphChanged("Weight set between " + selection.getName() + " & " + clicked.getName());
                         } catch (NumberFormatException e) {
-                            JOptionPane.showMessageDialog(this, "Invalid number.");
+                            toast.error("That is not a number.");
                         }
                     }
                     resetSelection();
@@ -657,7 +661,7 @@ public class MainFrame extends JFrame {
     private void switchUser() {
         List<Person> people = new ArrayList<>(service.getAllUsers());
         if (people.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "There is nobody on campus yet.");
+            toast.warn("There is nobody on campus yet.");
             return;
         }
         people.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
@@ -675,9 +679,7 @@ public class MainFrame extends JFrame {
     private void editProfile() {
         Person me = session.getCurrentUser();
         if (me == null) {
-            JOptionPane.showMessageDialog(this,
-                    "No profile selected yet. Use Me ▸ Create My Profile, or sign in as an "
-                            + "existing student.");
+            toast.warn("No profile selected. Me ▸ Create My Profile.");
             return;
         }
         OnboardingWizard wizard = new OnboardingWizard(this, service, me);
@@ -712,9 +714,7 @@ public class MainFrame extends JFrame {
     private void showMyMatches() {
         Person me = session.getCurrentUser();
         if (me == null) {
-            JOptionPane.showMessageDialog(this,
-                    "Tell us who you are first — Me ▸ Create My Profile, or sign in as an "
-                            + "existing student.");
+            toast.warn("Sign in first — Me ▸ Create My Profile.");
             return;
         }
 
@@ -845,8 +845,7 @@ public class MainFrame extends JFrame {
     private void showMyRole() {
         Person me = session.getCurrentUser();
         if (me == null) {
-            JOptionPane.showMessageDialog(this,
-                    "This is about you, so sign in first — Me ▸ Create My Profile.");
+            toast.warn("Sign in first — this is about you.");
             return;
         }
 
@@ -957,7 +956,7 @@ public class MainFrame extends JFrame {
     private void showGroupsIdFitInto() {
         Person me = session.getCurrentUser();
         if (me == null) {
-            JOptionPane.showMessageDialog(this, "Sign in first — Me ▸ Create My Profile.");
+            toast.warn("Sign in first — Me ▸ Create My Profile.");
             return;
         }
 
@@ -986,9 +985,7 @@ public class MainFrame extends JFrame {
     private void nameASquad() {
         List<Group> squads = groups().suggestedSquads(3);
         if (squads.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                    "No squads found yet — a squad is a set of 3+ people who all know "
-                            + "each other.");
+            toast.info("No squads yet — a squad is 3+ people who all know each other.");
             return;
         }
 
@@ -1033,7 +1030,7 @@ public class MainFrame extends JFrame {
     private void showRequests() {
         Person me = session.getCurrentUser();
         if (me == null) {
-            JOptionPane.showMessageDialog(this, "Sign in first — Me ▸ Create My Profile.");
+            toast.warn("Sign in first — Me ▸ Create My Profile.");
             return;
         }
 
@@ -1089,7 +1086,7 @@ public class MainFrame extends JFrame {
                 showRequests();
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage());
+            toast.error(ex.getMessage());
         }
     }
 
@@ -1097,6 +1094,62 @@ public class MainFrame extends JFrame {
     private void showText(String title) {
         sideTitle.setText(title);
         sideCards.show(sideStack, SIDE_TEXT);
+    }
+
+    /**
+     * Single-key shortcuts for the things done most often.
+     * <p>
+     * Registered WHEN_IN_FOCUSED_WINDOW so they work wherever focus happens to be, except
+     * that plain letters would then steal keystrokes from the search box — so the guard
+     * checks whether a text field currently has focus before acting.
+     */
+    private void installShortcuts(JToggleButton inspect, JToggleButton connect,
+                                  JToggleButton physics) {
+        key("I", "modeInspect", () -> inspect.doClick());
+        key("C", "modeConnect", () -> connect.doClick());
+        key("P", "togglePhysics", () -> physics.doClick());
+        key("M", "myMatches", this::showMyMatches);
+        key("H", "similarityMap", this::showSimilarityHeatmap);
+        key("shift SLASH", "help", this::showShortcuts);
+    }
+
+    private void key(String stroke, String name, Runnable action) {
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(stroke), name);
+        getRootPane().getActionMap().put(name, new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) {
+                // Typing "c" into the search box must not flip the app into Connect mode.
+                Component focused = FocusManager.getCurrentManager().getFocusOwner();
+                if (focused instanceof JTextComponent || focused instanceof JTextField) return;
+                action.run();
+            }
+        });
+    }
+
+    private void showShortcuts() {
+        String[][] rows = {
+            {"Ctrl+F", "Search people and interests"},
+            {"F", "Fit the whole campus on screen"},
+            {"0", "Reset zoom"},
+            {"+ / -", "Zoom in and out"},
+            {"Scroll", "Zoom toward the pointer"},
+            {"Drag background", "Pan"},
+            {"Ctrl+Drag node", "Move a person"},
+            {"I", "Inspect mode"},
+            {"C", "Connect mode"},
+            {"Esc", "Cancel a half-finished action"},
+            {"M", "Who should I meet?"},
+            {"H", "Similarity map"},
+            {"P", "Toggle physics"},
+            {"?", "This list"},
+        };
+        StringBuilder sb = new StringBuilder("=== Keyboard ===\n\n");
+        for (String[] r : rows) sb.append(String.format("  %-16s %s%n", r[0], r[1]));
+        sb.append("\n\nTip: hover any person to highlight just their\n")
+          .append("corner of the network.\n");
+        pathDisplay.setText(sb.toString());
+        pathDisplay.setCaretPosition(0);
+        showText("Shortcuts");
     }
 
     private void resetSelection() {

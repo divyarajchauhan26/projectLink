@@ -479,7 +479,50 @@ public class NetworkCanvas extends JPanel {
     private void paintOverlay(Graphics2D g2) {
         if (showHeatmap) drawHeatLegend(g2);
         else if (showCommunities) drawCommunityLegend(g2);
+        drawMinimap(g2);
         drawZoomBadge(g2);
+    }
+
+    /**
+     * A whole-world thumbnail with the current view outlined.
+     * <p>
+     * Zoom without a minimap trades one problem for another: you can finally see detail,
+     * but you lose track of where that detail sits, and panning becomes a hunt. Only
+     * shown when zoomed in past the point where the full graph fits, since below that
+     * the minimap would just be a smaller copy of what is already on screen.
+     */
+    private void drawMinimap(Graphics2D g2) {
+        if (viewport.getZoom() <= 0.62) return;
+
+        final int w = 150, h = 96;
+        final int x = getWidth() - w - 14, y = 14;
+        double sx = (double) w / CampusConnect.service.NetworkService.WORLD_WIDTH;
+        double sy = (double) h / CampusConnect.service.NetworkService.WORLD_HEIGHT;
+
+        g2.setColor(Theme.alpha(Theme.BG, 220));
+        g2.fillRoundRect(x, y, w, h, 8, 8);
+        g2.setColor(Theme.BORDER);
+        g2.drawRoundRect(x, y, w, h, 8, 8);
+
+        for (Person p : service.getAllUsers()) {
+            g2.setColor(p == currentUser ? Theme.YOU
+                    : suggested.contains(p) ? Theme.ACCENT
+                    : Theme.alpha(Theme.TEXT_DIM, 150));
+            int px = x + (int) (p.x * sx), py = y + (int) (p.y * sy);
+            int r = (p == currentUser) ? 3 : 2;
+            g2.fillOval(px - r, py - r, r * 2, r * 2);
+        }
+
+        // The rectangle is where the camera is looking, in world units.
+        double viewW = getWidth() / viewport.getZoom();
+        double viewH = getHeight() / viewport.getZoom();
+        double viewX = -viewport.getPanX() / viewport.getZoom();
+        double viewY = -viewport.getPanY() / viewport.getZoom();
+
+        g2.setStroke(new BasicStroke(1.4f));
+        g2.setColor(Theme.ACCENT);
+        g2.drawRect(x + (int) (viewX * sx), y + (int) (viewY * sy),
+                Math.max(4, (int) (viewW * sx)), Math.max(4, (int) (viewH * sy)));
     }
 
     private void drawHeatLegend(Graphics2D g2) {
