@@ -1,26 +1,52 @@
-# projectLink
-This project models a college social network using graph data structures. Users are represented as nodes, friendships as edges, and BFS/DFS are used for shortest and exhaustive path discovery.
+# Campus Connect
 
-## Running it
+**A social recommendation engine for university students, built on graph algorithms.**
 
-The quickest way — builds if needed, then launches:
+A first-year arrives knowing nobody. Somewhere on campus is the person who plays the same
+instrument or is stuck on the same course — and they will probably never meet. Campus
+Connect is the mechanism that introduces them, and explains why.
 
-```powershell
-./run.ps1
-```
+![Campus Connect](docs/images/01-discovery.png)
 
-Other modes:
+### 📖 [Read the full project write-up →](docs/PROJECT.md)
 
-```powershell
-./run.ps1 -Test     # run the nine verification harnesses (234 checks)
-./run.ps1 -Clean    # force a full rebuild first
-```
-
-In VS Code, F5 also works once the Java extension has picked up the `lib/` jars.
+Screenshots, how the matching engine works, why each algorithm is there, the architecture,
+and the decisions behind it.
 
 ---
 
-## Setup & Running (manual)
+## Quick start
+
+```powershell
+./run.ps1            # build if needed, then launch
+./run.ps1 -Test      # run the 255 verification checks
+./run.ps1 -Clean     # force a full rebuild
+```
+
+**Controls:** scroll to zoom · drag background to pan · `F` fit · `Ctrl+F` search ·
+hover anyone to isolate their part of the network · `?` for all shortcuts.
+
+---
+
+## What it does
+
+| | |
+|---|---|
+| **Recommends people** | Blends rarity-weighted interest overlap, TF-IDF over bios, shared circumstance, intent, skill exchange and mutual friends — then explains each suggestion in a sentence |
+| **Handles newcomers** | A student with zero connections still gets good matches; the structural signal is reweighted away rather than left to produce noise |
+| **Maps the campus** | Similarity heatmap relative to you, named friend circles, squads, bridges, isolation |
+| **Finds warm introductions** | Dijkstra over `1/strength`, giving the warmest chain of friends rather than the shortest |
+| **Surfaces the overlooked** | Inverts the usual question from "what does this user want" to "who is nobody finding" |
+
+**Built with:** Java 21+, Swing, FlatLaf, Gson. No build system — `javac` and a script.
+
+**Verified by:** ten headless harnesses, 255 checks, `./run.ps1 -Test`.
+
+---
+
+## Building manually
+
+If you would rather not use the script:
 
 ### Compile (PowerShell):
 ```powershell
@@ -36,13 +62,13 @@ javac -d out -cp "lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gs
 
 ### Run:
 ```bash
-java -cp "out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar" CampusConnect.main.Main
+java -cp "out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar" CampusConnect.main.Main
 ```
 
 ### Dev harnesses (headless, no window):
 ```bash
-java -cp out CampusConnect.dev.InterestCatalogHarness
-java -cp "out;lib/gson-2.11.0.jar" CampusConnect.dev.SeedHarness
+CP="out;lib/flatlaf-3.5.jar;lib/flatlaf-intellij-themes-3.5.jar;lib/gson-2.11.0.jar"
+java -cp "$CP" CampusConnect.dev.MatchingHarness   # and nine others -- see docs/PROJECT.md
 ```
 
 ### Adding campus-specific interests
