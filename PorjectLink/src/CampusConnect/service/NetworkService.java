@@ -15,6 +15,17 @@ public class NetworkService {
     private Map<String, Double> edgeWeights; // Key: sorted node-id pair
     private static final int MIN_DISTANCE = 60;
 
+    /**
+     * The world the graph lives in, independent of the window.
+     * <p>
+     * Physics used to be handed the canvas component size, so a smaller window did not
+     * scroll the graph — it squeezed it, clamping every node into less and less space
+     * until the layout was meaningless. The world is now a fixed size and the
+     * {@link CampusConnect.ui.Viewport} decides how much of it you are looking at.
+     */
+    public static final int WORLD_WIDTH = 1600;
+    public static final int WORLD_HEIGHT = 1000;
+
     // PHYSICS CONSTANTS
     private static final double REPULSION_FORCE = 60000;
     private static final double SPRING_LENGTH = 150;

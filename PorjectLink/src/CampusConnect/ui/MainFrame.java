@@ -54,6 +54,7 @@ public class MainFrame extends JFrame {
     private InsightService insightService;
     private GroupService groupService;
     private ConnectionService connections;
+    private SearchBox searchBox;
 
     // MODES for clicking on canvas
     private enum Mode { CONNECT, DISCONNECT, PATH, DELETE, VIEW, SET_WEIGHT }
@@ -71,8 +72,12 @@ public class MainFrame extends JFrame {
         this.canvas = new NetworkCanvas(service);
         this.connections = new ConnectionService(service);
 
-        setTitle("Campus Connect - Social Graph Analytics");
-        setSize(1300, 850);
+        setTitle("Campus Connect");
+        setSize(1360, 880);
+        // The two side panels take a fixed 520px. Below this the graph gets squeezed to
+        // nothing, so refuse to go smaller rather than degrade silently.
+        setMinimumSize(new Dimension(1040, 640));
+        setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
@@ -94,7 +99,7 @@ public class MainFrame extends JFrame {
         // as soon as any other toggle is pressed.
         JToggleButton btnInspect = createToggle(group, "Inspect", Mode.VIEW);
         btnInspect.setSelected(true);
-        JToggleButton btnConnect = createToggle(group, "Connect (Add Link)", Mode.CONNECT);
+        JToggleButton btnConnect = createToggle(group, "Connect", Mode.CONNECT);
         JToggleButton btnDisconnect = createToggle(group, "Disconnect", Mode.DISCONNECT);
         JToggleButton btnWeight = createToggle(group, "Set Weight", Mode.SET_WEIGHT);
         JToggleButton btnPath = createToggle(group, "Warm Intro", Mode.PATH);
@@ -107,7 +112,7 @@ public class MainFrame extends JFrame {
         });
 
         // Destructive: this discards the current graph. Label it honestly.
-        JButton btnReset = new JButton("Reset to Demo Graph");
+        JButton btnReset = new JButton("Reset Demo");
         btnReset.addActionListener(e -> {
             int confirm = JOptionPane.showConfirmDialog(this,
                     "This will discard the current graph and reload the demo network.\nContinue?",
@@ -126,10 +131,31 @@ public class MainFrame extends JFrame {
         toolBar.add(btnPath);
         toolBar.addSeparator();
         toolBar.add(btnPhysics);
+
+        JButton btnFit = new JButton("Fit");
+        btnFit.setToolTipText("Frame the whole campus  (F)");
+        btnFit.addActionListener(e -> canvas.fitToView());
+        toolBar.addSeparator();
+        toolBar.add(btnFit);
+
         toolBar.add(Box.createHorizontalGlue());
+
+        // Search sits in the toolbar rather than a menu: finding a person is the most
+        // frequent thing anyone does here and it had no entry point at all.
+        searchBox = new SearchBox(service, this, this::revealPerson);
+        toolBar.add(searchBox);
+        toolBar.addSeparator();
         toolBar.add(btnReset);
 
         add(toolBar, BorderLayout.NORTH);
+
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke("control F"), "focusSearch");
+        getRootPane().getActionMap().put("focusSearch", new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) {
+                searchBox.focusSearch();
+            }
+        });
 
         // --- Center Canvas ---
         add(canvas, BorderLayout.CENTER);
@@ -207,7 +233,7 @@ public class MainFrame extends JFrame {
             String name = JOptionPane.showInputDialog(this, "Enter User Name:");
             if (name != null && !name.trim().isEmpty()) {
                 try {
-                    service.addRandomUser(name, canvas.getWidth(), canvas.getHeight());
+                    service.addRandomUser(name, NetworkService.WORLD_WIDTH, NetworkService.WORLD_HEIGHT);
                     onGraphChanged("Added " + name);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, ex.getMessage());
@@ -227,6 +253,15 @@ public class MainFrame extends JFrame {
             }
         });
         
+        // Escape backs out of a half-finished two-click action. Previously the only way
+        // out was to complete it or switch modes.
+        canvas.addPropertyChangeListener("cancelPending", evt -> {
+            if (selection != null) {
+                resetSelection();
+                statusLabel.setText("Cancelled.");
+            }
+        });
+
         canvas.addPropertyChangeListener("canvasClicked", evt -> {
             // Deselect on empty click
             resetSelection();
@@ -234,7 +269,7 @@ public class MainFrame extends JFrame {
 
         physicsTimer = new Timer(30, e -> {
             if (physicsEnabled) {
-                service.updatePhysics(canvas.getWidth(), canvas.getHeight());
+                service.updatePhysics(NetworkService.WORLD_WIDTH, NetworkService.WORLD_HEIGHT);
                 canvas.repaint();
             }
         });
@@ -251,6 +286,8 @@ public class MainFrame extends JFrame {
             // open, so the app looked like the graph editor it used to be. Starting as
             // Aarav puts the recommender on screen immediately, and he is the honest
             // demonstration: no friends, so nothing on his feed can come from the graph.
+            canvas.fitToView();
+
             Person demo = service.findUserByName("Aarav Jain");
             if (demo != null && !session.hasCurrentUser()) {
                 session.setCurrentUser(demo);
@@ -479,6 +516,7 @@ public class MainFrame extends JFrame {
                 if (selection == null) {
                     selection = clicked;
                     canvas.setActiveSelection(selection);
+                    canvas.setPendingLinkFrom(selection);
                     statusLabel.setText("Connecting: Selected " + clicked.getName());
                 } else {
                     service.addConnection(selection, clicked);
@@ -491,6 +529,7 @@ public class MainFrame extends JFrame {
                 if (selection == null) {
                     selection = clicked;
                     canvas.setActiveSelection(selection);
+                    canvas.setPendingLinkFrom(selection);
                     statusLabel.setText("Disconnecting: Selected " + clicked.getName());
                 } else {
                     service.removeConnection(selection, clicked);
@@ -503,6 +542,7 @@ public class MainFrame extends JFrame {
                 if (selection == null) {
                     selection = clicked;
                     canvas.setActiveSelection(selection);
+                    canvas.setPendingLinkFrom(selection);
                     statusLabel.setText("Set Weight: Selected " + clicked.getName());
                 } else {
                     String input = JOptionPane.showInputDialog(this, "Enter weight for edge (default 1.0):", "1.0");
@@ -527,6 +567,7 @@ public class MainFrame extends JFrame {
                 if (selection == null) {
                     selection = clicked;
                     canvas.setActiveSelection(selection);
+                    canvas.setPendingLinkFrom(selection);
                     statusLabel.setText("From " + clicked.getName() + " — now click who you want to meet.");
                     pathDisplay.setText("Click the person you want an introduction to...");
                     showText("Warm intro");
@@ -1061,6 +1102,23 @@ public class MainFrame extends JFrame {
     private void resetSelection() {
         selection = null;
         canvas.setActiveSelection(null);
+        canvas.setPendingLinkFrom(null);
+    }
+
+    /**
+     * Jump to somebody and show them — the target of a search hit.
+     * <p>
+     * Centres and zooms rather than just selecting, because on a graph you can pan and
+     * zoom around, "selected" is useless if they are off screen.
+     */
+    private void revealPerson(Person person) {
+        if (person == null) return;
+        selection = person;
+        canvas.setActiveSelection(person);
+        canvas.focusOn(person);
+        showProfile(person);
+        statusLabel.setText(person.getName() + " — " + insights().archetype(person)
+                + ", " + service.getConnections(person).size() + " connections.");
     }
 
 
@@ -1094,7 +1152,7 @@ public class MainFrame extends JFrame {
      */
     private void loadDefaultGraph() {
         try {
-            CampusSeed.load(service, canvas.getWidth(), canvas.getHeight());
+            CampusSeed.load(service, NetworkService.WORLD_WIDTH, NetworkService.WORLD_HEIGHT);
         } catch (Exception e) {
             // A partial graph silently corrupts every metric downstream — say so loudly.
             statusLabel.setText("Demo campus incomplete: " + e.getMessage());
