@@ -29,6 +29,8 @@ from his profile alone — the graph knows nothing about him yet.*
 - [Running it](#running-it)
 - [Where it goes next](#where-it-goes-next)
 
+> Also: **[Interview notes](INTERVIEW.md)** — the questions this project invites, and how to answer them.
+
 ---
 
 ## The problem
